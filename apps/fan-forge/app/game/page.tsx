@@ -1,40 +1,47 @@
-'use client'
+'use client';
 
-import { useState, useCallback, useEffect, useRef } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
-import MatchCanvas      from '@/components/game/MatchCanvas'
-import AgentPanel       from '@/components/game/AgentPanel'
-import AgentDecisionLog from '@/components/game/AgentDecisionLog'
-import EmojiChat        from '@/components/game/EmojiChat'
-import GridEvent        from '@/components/game/GridEvent'
-import StakePanel       from '@/components/game/StakePanel'
-import { GameEngine }   from '@/lib/gameEngine'
-import type { DecisionLogEntry, MatchState, Team } from '@/lib/types'
-import type { AgentView } from '@/components/game/AgentPanel'
-import type { ChatMessage } from '@/components/game/EmojiChat'
-import type { FeedEntry } from '@/components/game/MatchCanvas'
-import { MATCH_DURATION_MS, GRID_ROWS, GRID_COLS, FREE_PIXELS_PER_EVENT, GRID_TARGETS, GRID_ROUND_DURATION_MS } from '@/lib/constants'
-import type { GridEventState } from '@/lib/types'
+import AgentDecisionLog from '@/components/game/AgentDecisionLog';
+import type { AgentView } from '@/components/game/AgentPanel';
+import AgentPanel from '@/components/game/AgentPanel';
+import type { ChatMessage } from '@/components/game/EmojiChat';
+import EmojiChat from '@/components/game/EmojiChat';
+import GridEvent from '@/components/game/GridEvent';
+import type { FeedEntry } from '@/components/game/MatchCanvas';
+import MatchCanvas from '@/components/game/MatchCanvas';
+import StakePanel from '@/components/game/StakePanel';
+import {
+  FREE_PIXELS_PER_EVENT,
+  GRID_COLS,
+  GRID_ROUND_DURATION_MS,
+  GRID_ROWS,
+  GRID_TARGETS,
+  MATCH_DURATION_MS,
+} from '@/lib/constants';
+import { GameEngine } from '@/lib/gameEngine';
+import type { DecisionLogEntry, GridEventState, MatchState, Team } from '@/lib/types';
+import { usePollar, WalletButton } from '@pollar/react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { useSearchParams } from 'next/navigation';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function formatTimer(elapsedMs: number) {
-  const rem = Math.max(0, MATCH_DURATION_MS - elapsedMs)
-  const s   = Math.ceil(rem / 1000)
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
+  const rem = Math.max(0, MATCH_DURATION_MS - elapsedMs);
+  const s = Math.ceil(rem / 1000);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
-let chatSeq  = 0
-let notifSeq = 0
+let chatSeq  = 0;
+let notifSeq = 0;
 
-// Simulated wallet fragment for this session, e.g. "0x4f..2a"
 function makeWalletId() {
-  const hex = () => Math.floor(Math.random() * 0xff).toString(16).padStart(2, '0')
-  return `0x${hex()}..${hex()}`
+  const hex = () => Math.floor(Math.random() * 0xff).toString(16).padStart(2, '0');
+  return `0x${hex()}..${hex()}`;
 }
 
-const TX_GREEN = '#00ff88'
-const MONO_FONT: React.CSSProperties = { fontFamily: 'var(--font-space-mono)' }
+const TX_GREEN  = '#00ff88';
+const MONO_FONT: React.CSSProperties = { fontFamily: 'var(--font-space-mono)' };
 
 interface Notification { id: string; type: 'tx' | 'round'; msg?: string }
 
@@ -42,12 +49,9 @@ interface Notification { id: string; type: 'tx' | 'round'; msg?: string }
 
 function TeamToggle({ value, onChange }: { value: Team; onChange: (t: Team) => void }) {
   return (
-    <div
-      className="flex overflow-hidden rounded"
-      style={{ border: '1px solid var(--border-accent)' }}
-    >
+    <div className="flex overflow-hidden rounded" style={{ border: '1px solid var(--border-accent)' }}>
       {(['red', 'blue'] as Team[]).map(t => {
-        const active = value === t
+        const active = value === t;
         return (
           <button
             key={t}
@@ -55,9 +59,7 @@ function TeamToggle({ value, onChange }: { value: Team; onChange: (t: Team) => v
             className="px-3 py-1 text-[11px] font-bold uppercase tracking-widest transition-all"
             style={{
               fontFamily: 'var(--font-space-mono)',
-              background: active
-                ? t === 'red' ? 'var(--red)' : 'var(--blue)'
-                : 'transparent',
+              background: active ? (t === 'red' ? 'var(--red)' : 'var(--blue)') : 'transparent',
               color:  active ? '#0a0a0f' : 'var(--text-muted)',
               border: 'none',
               cursor: 'pointer',
@@ -65,39 +67,68 @@ function TeamToggle({ value, onChange }: { value: Team; onChange: (t: Team) => v
           >
             {t === 'red' ? 'Red' : 'Blue'}
           </button>
-        )
+        );
       })}
     </div>
-  )
+  );
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function GamePage() {
-  // ── Engine (singleton, never re-created) ─────────────────────────────────
-  const engineRef      = useRef<GameEngine | null>(null)
-  const startTimeRef   = useRef<number | null>(null)
-  const lastSimRef     = useRef<number>(0)
-  const myWalletId     = useRef<string>(makeWalletId())
-  const elapsedMsRef   = useRef<number>(0)   // always-fresh elapsed for callbacks
+  // ── Engine ───────────────────────────────────────────────────────────────
+  const engineRef    = useRef<GameEngine | null>(null);
+  const startTimeRef = useRef<number | null>(null);
+  const lastSimRef   = useRef<number>(0);
+  const myWalletId   = useRef<string>(makeWalletId());
+  const elapsedMsRef = useRef<number>(0); // always-fresh elapsed for callbacks
 
   if (!engineRef.current) {
-    engineRef.current = new GameEngine('GAGENTR3DXYZ', 'GAGENTB7WXYZ')
+    engineRef.current = new GameEngine('GAGENTR3DXYZ', 'GAGENTB7WXYZ');
   }
 
-  // ── State ─────────────────────────────────────────────────────────────────
-  const [matchState,    setMatchState]    = useState<MatchState>(() => engineRef.current!.getState())
-  const [decisionLog,   setDecisionLog]   = useState<DecisionLogEntry[]>([])
-  const [feedEntries,   setFeedEntries]   = useState<FeedEntry[]>([])
-  const [chatMessages,  setChatMessages]  = useState<ChatMessage[]>([])
-  const [userTeam,      setUserTeam]      = useState<Team>('red')
-  const [agentView,     setAgentView]     = useState<AgentView>('agents')
-  const [stakedAmount,  setStakedAmount]  = useState<number | null>(null)
-  const [stakedTeam,    setStakedTeam]    = useState<Team | null>(null)
-  const [notifications, setNotifications] = useState<Notification[]>([])
-  const [bottomView,    setBottomView]    = useState<'chat' | 'grid'>('chat')
+  // ── External integrations (Pollar / search params) ────────────────────────
+  const searchParams  = useSearchParams();
+  const matchId       = searchParams.get('matchId') ?? '';
+  const { walletAddress, isAuthenticated } = usePollar();
 
-  // Persistent grid — always available, rotates through shapes every 60s
+  const [roomId,    setRoomId]    = useState('');
+  const [username,  setUsername]  = useState('');
+
+  useEffect(() => {
+    if (!matchId) return;
+    fetch(`/api/matches/${matchId}/room`, { method: 'POST' })
+      .then(r => r.json())
+      .then(data => { if (data.roomId) setRoomId(data.roomId); })
+      .catch(console.error);
+  }, [matchId]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !walletAddress) return;
+    const chatApi = process.env.NEXT_PUBLIC_CHAT_API_URL ?? 'http://localhost:3001';
+    fetch(`${chatApi}/api/auth/me`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ walletAddress }),
+    })
+      .then(r => r.json())
+      .then(user => { if (user.username) setUsername(user.username); })
+      .catch(console.error);
+  }, [isAuthenticated, walletAddress]);
+
+  // ── State ─────────────────────────────────────────────────────────────────
+  const [matchState,    setMatchState]    = useState<MatchState>(() => engineRef.current!.getState());
+  const [decisionLog,   setDecisionLog]   = useState<DecisionLogEntry[]>([]);
+  const [feedEntries,   setFeedEntries]   = useState<FeedEntry[]>([]);
+  const [chatMessages,  setChatMessages]  = useState<ChatMessage[]>([]);
+  const [userTeam,      setUserTeam]      = useState<Team>('red');
+  const [agentView,     setAgentView]     = useState<AgentView>('agents');
+  const [stakedAmount,  setStakedAmount]  = useState<number | null>(null);
+  const [stakedTeam,    setStakedTeam]    = useState<Team | null>(null);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [bottomView,    setBottomView]    = useState<'chat' | 'grid'>('chat');
+
+  // Persistent grid — always available, rotates through shapes each round
   const [persistentGrid, setPersistentGrid] = useState<GridEventState>(() => ({
     id:          1,
     grid:        Array.from({ length: GRID_ROWS }, () => Array(GRID_COLS).fill(0)),
@@ -105,19 +136,17 @@ export default function GamePage() {
     startMs:     0,
     endMs:       GRID_ROUND_DURATION_MS,
     pixelsLeft:  { red: FREE_PIXELS_PER_EVENT, blue: FREE_PIXELS_PER_EVENT },
-  }))
+  }));
 
   // ── Game loop — 100 ms tick ───────────────────────────────────────────────
   useEffect(() => {
-    const engine = engineRef.current!
-
+    const engine = engineRef.current!;
     const id = setInterval(() => {
-      if (!startTimeRef.current) startTimeRef.current = Date.now()
-      const elapsed = Date.now() - startTimeRef.current
-      elapsedMsRef.current = elapsed
+      if (!startTimeRef.current) startTimeRef.current = Date.now();
+      const elapsed = Date.now() - startTimeRef.current;
+      elapsedMsRef.current = elapsed;
 
-      const ticked = engine.tick(elapsed)
-
+      const ticked = engine.tick(elapsed);
       const snap = {
         status:      ticked.status,
         elapsedMs:   ticked.elapsedMs,
@@ -128,7 +157,7 @@ export default function GamePage() {
           blue: { ...ticked.agents.blue, stats: { ...ticked.agents.blue.stats } },
         },
         ge: ticked.currentGridEvent,
-      }
+      };
 
       setMatchState(prev => ({
         status:      snap.status,
@@ -138,101 +167,99 @@ export default function GamePage() {
         agents:      snap.agents,
         currentGridEvent: snap.ge === null ? null : {
           ...snap.ge,
-          grid:       prev.currentGridEvent?.id === snap.ge.id
+          grid: prev.currentGridEvent?.id === snap.ge.id
             ? prev.currentGridEvent.grid
             : snap.ge.grid,
           pixelsLeft: prev.currentGridEvent?.id === snap.ge.id
             ? prev.currentGridEvent.pixelsLeft
             : snap.ge.pixelsLeft,
         },
-      }))
+      }));
 
-      // Agent simulation every 30 s
       if (snap.status === 'active' && elapsed - lastSimRef.current >= 30_000) {
-        lastSimRef.current = elapsed
-        const simTeam: Team = Math.random() < 0.5 ? 'red' : 'blue'
-        const amount        = Math.round((0.05 + Math.random() * 0.10) * 100) / 100
-        const entries       = engine.applyAgentFunding(simTeam, amount)
-        setDecisionLog(prev => [...prev, ...entries].slice(-100))
+        lastSimRef.current = elapsed;
+        const simTeam: Team = Math.random() < 0.5 ? 'red' : 'blue';
+        const amount = Math.round((0.05 + Math.random() * 0.10) * 100) / 100;
+        const entries = engine.applyAgentFunding(simTeam, amount);
+        setDecisionLog(prev => [...prev, ...entries].slice(-100));
       }
-    }, 100)
-
-    return () => clearInterval(id)
-  }, [])
+    }, 100);
+    return () => clearInterval(id);
+  }, []);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
   const handleFeedEntry = useCallback((entry: FeedEntry) => {
-    setFeedEntries(prev => [...prev, entry].slice(-30))
-  }, [])
+    setFeedEntries(prev => [...prev, entry].slice(-30));
+  }, []);
 
   const handleGoal = useCallback((team: Team) => {
-    engineRef.current!.processGoal(team)
+    engineRef.current!.processGoal(team);
     setMatchState(prev => ({
       ...prev,
       score: { ...prev.score, [team]: prev.score[team] + 1 },
-    }))
-  }, [])
+    }));
+  }, []);
 
   const handleFundAgent = useCallback((team: Team, amount: number) => {
-    const entries = engineRef.current!.applyAgentFunding(team, amount)
-    setDecisionLog(prev => [...prev, ...entries].slice(-100))
-  }, [])
+    const entries = engineRef.current!.applyAgentFunding(team, amount);
+    setDecisionLog(prev => [...prev, ...entries].slice(-100));
+  }, []);
 
   const handlePaintPixel = useCallback((row: number, col: number) => {
     setPersistentGrid(prev => {
-      if (prev.pixelsLeft[userTeam] <= 0) return prev
-      const cellVal = userTeam === 'red' ? 1 : 2
-      if (prev.grid[row][col] === cellVal) return prev
+      if (prev.pixelsLeft[userTeam] <= 0) return prev;
+      const cellVal = userTeam === 'red' ? 1 : 2;
+      if (prev.grid[row][col] === cellVal) return prev;
       return {
         ...prev,
         grid: prev.grid.map((r, ri) =>
-          r.map((cell, ci) => ri === row && ci === col ? cellVal : cell)
+          r.map((cell, ci) => ri === row && ci === col ? cellVal : cell),
         ),
         pixelsLeft: { ...prev.pixelsLeft, [userTeam]: prev.pixelsLeft[userTeam] - 1 },
-      }
-    })
-  }, [userTeam])
+      };
+    });
+  }, [userTeam]);
 
   const handleBuyPixels = useCallback((count: number) => {
     setPersistentGrid(prev => ({
       ...prev,
       pixelsLeft: { ...prev.pixelsLeft, [userTeam]: prev.pixelsLeft[userTeam] + count },
-    }))
-  }, [userTeam])
+    }));
+  }, [userTeam]);
 
   const addNotification = useCallback((type: 'tx' | 'round', msg?: string, duration = 3000) => {
-    const id = String(++notifSeq)
-    setNotifications(prev => [...prev, { id, type, msg }])
-    setTimeout(() => setNotifications(prev => prev.filter(n => n.id !== id)), duration)
-  }, [])
+    const id = String(++notifSeq);
+    setNotifications(prev => [...prev, { id, type, msg }]);
+    setTimeout(() => setNotifications(prev => prev.filter(n => n.id !== id)), duration);
+  }, []);
 
-  const handleToast = useCallback(() => addNotification('tx'), [addNotification])
+  const handleToast  = useCallback(() => addNotification('tx'), [addNotification]);
 
   const dismissNotif = useCallback((id: string) => {
-    setNotifications(prev => prev.filter(n => n.id !== id))
-  }, [])
+    setNotifications(prev => prev.filter(n => n.id !== id));
+  }, []);
 
   const handleEventEnd = useCallback((winner: Team) => {
-    engineRef.current!.applyGridEventResult(winner)
+    engineRef.current!.applyGridEventResult(winner);
 
-    const winnerLabel = winner === 'red' ? 'Red' : 'Blue'
-    const roundMsg    = `${winnerLabel} wins the round · ×1.5 boost applied`
+    const winnerLabel = winner === 'red' ? 'Red' : 'Blue';
+    const roundMsg    = `${winnerLabel} wins the round · ×1.5 boost applied`;
 
     // System message visible in Chat tab
     setChatMessages(prev => [
       ...prev,
       { id: String(++chatSeq), team: winner, emoji: '', sentAt: Date.now(),
         sender: 'system', type: 'system' as const, msg: roundMsg },
-    ].slice(-20))
+    ].slice(-20));
 
     // Global notification visible regardless of active tab
-    addNotification('round', roundMsg, 4000)
+    addNotification('round', roundMsg, 4000);
 
     // Advance to next shape
     setPersistentGrid(prev => {
-      const nextId = (prev.id % GRID_TARGETS.length) + 1
-      const nowMs  = elapsedMsRef.current
+      const nextId = (prev.id % GRID_TARGETS.length) + 1;
+      const nowMs  = elapsedMsRef.current;
       return {
         id:          nextId,
         grid:        Array.from({ length: GRID_ROWS }, () => Array(GRID_COLS).fill(0)),
@@ -240,26 +267,32 @@ export default function GamePage() {
         startMs:     nowMs,
         endMs:       nowMs + GRID_ROUND_DURATION_MS,
         pixelsLeft:  { red: FREE_PIXELS_PER_EVENT, blue: FREE_PIXELS_PER_EVENT },
-      }
-    })
-  }, [addNotification])
+      };
+    });
+  }, [addNotification]);
 
   const handleEmojiSend = useCallback((emoji: string) => {
+    const sender = (isAuthenticated && walletAddress)
+      ? `${walletAddress.slice(0, 4)}..${walletAddress.slice(-2)}`
+      : myWalletId.current;
     setChatMessages(prev => [
       ...prev,
-      { id: String(++chatSeq), team: userTeam, emoji, sentAt: Date.now(), sender: myWalletId.current },
-    ].slice(-20))
-  }, [userTeam])
+      { id: String(++chatSeq), team: userTeam, emoji, sentAt: Date.now(), sender },
+    ].slice(-20));
+  }, [userTeam, isAuthenticated, walletAddress]);
 
   const handleStake = useCallback((team: Team, amount: number) => {
-    setStakedTeam(prev => prev ?? team)
-    setStakedAmount(prev => (prev ?? 0) + amount)
-  }, [])
+    setStakedTeam(prev => prev ?? team);
+    setStakedAmount(prev => (prev ?? 0) + amount);
+  }, []);
 
   // ── Derived ───────────────────────────────────────────────────────────────
-  const isGrid = matchState.status === 'grid_event'
-  const score  = matchState.score
-  const timer  = formatTimer(matchState.elapsedMs)
+  const isGrid = matchState.status === 'grid_event';
+  const score  = matchState.score;
+  const timer  = formatTimer(matchState.elapsedMs);
+
+  // suppress unused var warnings for external integrations
+  void roomId; void username;
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -270,10 +303,8 @@ export default function GamePage() {
         className="flex h-14 shrink-0 items-center justify-between border-b px-5"
         style={{ borderColor: 'var(--border)', background: 'var(--bg-panel)' }}
       >
-        {/* Team toggle */}
         <TeamToggle value={userTeam} onChange={setUserTeam} />
 
-        {/* Timer + Score */}
         <div className="flex items-center gap-5">
           <span
             className="text-sm font-bold tracking-widest"
@@ -281,26 +312,14 @@ export default function GamePage() {
           >
             {timer}
           </span>
-          <div className="flex items-center gap-2 text-xl font-bold"
-            style={{ fontFamily: 'var(--font-space-mono)' }}>
+          <div className="flex items-center gap-2 text-xl font-bold" style={{ fontFamily: 'var(--font-space-mono)' }}>
             <span style={{ color: 'var(--red)'      }}>{score.red}</span>
             <span style={{ color: 'var(--text-dim)' }}>:</span>
             <span style={{ color: 'var(--blue)'     }}>{score.blue}</span>
           </div>
         </div>
 
-        {/* Profile */}
-        <button
-          className="h-8 w-8 rounded-full border text-xs transition-colors"
-          style={{
-            fontFamily:  'var(--font-space-mono)',
-            borderColor: 'var(--border-accent)',
-            background:  'var(--bg-surface)',
-            color:       'var(--text-muted)',
-          }}
-        >
-          0x
-        </button>
+        <WalletButton />
       </header>
 
       {/* ── Body ────────────────────────────────────────────────────────── */}
@@ -320,8 +339,8 @@ export default function GamePage() {
               style={{ borderColor: 'var(--border)', background: 'var(--bg-panel)' }}
             >
               {(['chat', 'grid'] as const).map(v => {
-                const active = bottomView === v
-                const accentColor = userTeam === 'red' ? 'var(--red)' : 'var(--blue)'
+                const active      = bottomView === v;
+                const accentColor = userTeam === 'red' ? 'var(--red)' : 'var(--blue)';
                 return (
                   <button
                     key={v}
@@ -345,7 +364,7 @@ export default function GamePage() {
                       />
                     )}
                   </button>
-                )
+                );
               })}
             </div>
 
@@ -357,7 +376,7 @@ export default function GamePage() {
                     exit={{ opacity: 0 }} transition={{ duration: 0.15 }} className="absolute inset-0">
                     <EmojiChat
                       team={userTeam}
-                      messages={chatMessages.filter(m => m.team === userTeam)}
+                      messages={chatMessages.filter(m => m.team === userTeam || m.type === 'system')}
                       onEmojiSend={handleEmojiSend}
                       isVisible
                     />
@@ -384,7 +403,8 @@ export default function GamePage() {
 
         {/* Right column (35%) */}
         <div className="flex flex-col overflow-hidden" style={{ flex: '35 35 0%' }}>
-          <div className="shrink-0 border-b" style={{ borderColor: 'var(--border)', height: agentView === 'agents' ? 360 : 'auto' }}>
+          <div className="shrink-0 border-b"
+            style={{ borderColor: 'var(--border)', height: agentView === 'agents' ? 360 : 'auto' }}>
             <AgentPanel
               agents={matchState.agents}
               userTeam={userTeam}
@@ -395,7 +415,6 @@ export default function GamePage() {
             />
           </div>
 
-          {/* Agent decisions fills the black space in the Agents tab */}
           {agentView === 'agents' && (
             <div className="flex-1 overflow-hidden">
               <AgentDecisionLog entries={decisionLog} activeTab={userTeam} />
@@ -465,10 +484,12 @@ export default function GamePage() {
                   cursor:     'pointer',
                 }}
                 onMouseEnter={e => {
-                  const c = notif.type === 'round' ? 'var(--gold)' : TX_GREEN
-                  ;(e.currentTarget as HTMLButtonElement).style.color = c
+                  (e.currentTarget as HTMLButtonElement).style.color =
+                    notif.type === 'round' ? 'var(--gold)' : TX_GREEN;
                 }}
-                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-dim)' }}
+                onMouseLeave={e => {
+                  (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-dim)';
+                }}
               >
                 ×
               </button>
@@ -478,5 +499,5 @@ export default function GamePage() {
       </div>
 
     </div>
-  )
+  );
 }
