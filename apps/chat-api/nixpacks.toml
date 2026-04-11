@@ -1,0 +1,8 @@
+[phases.build]
+cmds = [
+  "pnpm --filter chat-api exec prisma generate",
+  "pnpm --filter chat-api run build"
+]
+
+[start]
+cmd = "cd apps/chat-api && pnpm start"

@@ -1,0 +1,7 @@
+[phases.build]
+cmds = [
+  "pnpm --filter fan-forge run build"
+]
+
+[start]
+cmd = "cd apps/fan-forge && pnpm start"
