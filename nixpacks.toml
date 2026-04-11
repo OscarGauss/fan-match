@@ -5,4 +5,4 @@ cmds = [
 ]
 
 [start]
-cmd = "cd apps/web && pnpm start"
+cmd = "cd apps/chat-api && pnpm start"
