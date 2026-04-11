@@ -4,11 +4,27 @@ import { publishToRoom } from "@/lib/ably-server";
 import { verifyGiftPayment } from "@/lib/stellar";
 
 // GET /api/rooms/[roomId]/gifts — get active gift config for room
+// Auto-creates configs for any catalog items the room is missing (default: enabled).
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ roomId: string }> }
 ) {
   const { roomId } = await params;
+
+  const [allGiftTypes, existingConfigs] = await Promise.all([
+    prisma.giftType.findMany({ orderBy: { sortOrder: "asc" } }),
+    prisma.roomGiftConfig.findMany({ where: { roomId } }),
+  ]);
+
+  const existingSlugs = new Set(existingConfigs.map((c) => c.giftSlug));
+  const missing = allGiftTypes.filter((g) => !existingSlugs.has(g.slug));
+
+  if (missing.length > 0) {
+    await prisma.roomGiftConfig.createMany({
+      data: missing.map((g) => ({ roomId, giftSlug: g.slug, isEnabled: true })),
+      skipDuplicates: true,
+    });
+  }
 
   const configs = await prisma.roomGiftConfig.findMany({
     where: { roomId, isEnabled: true },
@@ -16,7 +32,6 @@ export async function GET(
     orderBy: { gift: { sortOrder: "asc" } },
   });
 
-  // Merge gift info with any price override
   const gifts = configs.map((c) => ({
     slug: c.giftSlug,
     emoji: c.gift.emoji,

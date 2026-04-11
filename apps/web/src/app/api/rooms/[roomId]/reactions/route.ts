@@ -3,11 +3,27 @@ import Ably from "ably";
 import { prisma } from "@/lib/prisma";
 
 // GET /api/rooms/[roomId]/reactions — list enabled reactions for this room
+// Auto-creates configs for any catalog items the room is missing (default: enabled).
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ roomId: string }> }
 ) {
   const { roomId } = await params;
+
+  const [allReactionTypes, existingConfigs] = await Promise.all([
+    prisma.reactionType.findMany({ orderBy: { sortOrder: "asc" } }),
+    prisma.roomReactionConfig.findMany({ where: { roomId } }),
+  ]);
+
+  const existingSlugs = new Set(existingConfigs.map((c) => c.reactionSlug));
+  const missing = allReactionTypes.filter((r) => !existingSlugs.has(r.slug));
+
+  if (missing.length > 0) {
+    await prisma.roomReactionConfig.createMany({
+      data: missing.map((r) => ({ roomId, reactionSlug: r.slug, isEnabled: true })),
+      skipDuplicates: true,
+    });
+  }
 
   const configs = await prisma.roomReactionConfig.findMany({
     where: { roomId, isEnabled: true },

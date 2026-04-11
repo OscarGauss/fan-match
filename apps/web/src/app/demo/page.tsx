@@ -7,6 +7,23 @@ import '@pollar/react/styles.css';
 
 type RoomRole = "OWNER" | "MODERATOR" | "VIEWER";
 
+interface GiftConfig {
+  giftSlug: string;
+  emoji: string;
+  label: string;
+  defaultPrice: string;
+  priceAsset: string;
+  isEnabled: boolean;
+  priceOverride: string | null;
+}
+
+interface ReactionConfig {
+  reactionSlug: string;
+  emoji: string;
+  label: string;
+  isEnabled: boolean;
+}
+
 interface RoomMember {
   role: "OWNER" | "MODERATOR";
   user: { id: string; username: string | null; walletAddress: string };
@@ -46,6 +63,11 @@ export default function DemoPage() {
   const [addingMod, setAddingMod] = useState(false);
   const [modError, setModError] = useState<string | null>(null);
   const [roomMembers, setRoomMembers] = useState<RoomMember[]>([]);
+
+  const [showGiftPanel, setShowGiftPanel] = useState(false);
+  const [giftConfigs, setGiftConfigs] = useState<GiftConfig[]>([]);
+  const [reactionConfigs, setReactionConfigs] = useState<ReactionConfig[]>([]);
+  const [savingGifts, setSavingGifts] = useState(false);
 
   const [hydrated, setHydrated] = useState(false);
   useEffect(() => setHydrated(true), []);
@@ -127,12 +149,24 @@ export default function DemoPage() {
     setActiveRole(role);
     setActiveRoomId(room.id);
     setShowModPanel(false);
+    setShowGiftPanel(false);
     setModError(null);
-    // Load members for mod management
+    // Load members + gift config for OWNER
     if (role === "OWNER") {
       fetch(`/api/rooms/${room.id}/members`)
         .then((r) => r.json())
         .then(setRoomMembers)
+        .catch(console.error);
+
+      const wallet = overrideRole ? walletAddress : (room.members.find((m) => m.user.walletAddress === walletAddress)?.user.walletAddress ?? walletAddress);
+      fetch(`/api/rooms/${room.id}/gifts/config?callerWallet=${wallet}`)
+        .then((r) => r.json())
+        .then(setGiftConfigs)
+        .catch(console.error);
+
+      fetch(`/api/rooms/${room.id}/reactions/config?callerWallet=${wallet}`)
+        .then((r) => r.json())
+        .then(setReactionConfigs)
         .catch(console.error);
     }
   };
@@ -167,6 +201,40 @@ export default function DemoPage() {
       body: JSON.stringify({ callerWallet: walletAddress, targetUserId: userId }),
     });
     if (res.ok) setRoomMembers((prev) => prev.filter((m) => m.user.id !== userId));
+  };
+
+  const handleSaveGiftConfigs = async () => {
+    if (!walletAddress || !activeRoomId) return;
+    setSavingGifts(true);
+    try {
+      await Promise.all([
+        fetch(`/api/rooms/${activeRoomId}/gifts/config`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            callerWallet: walletAddress,
+            configs: giftConfigs.map((g) => ({
+              giftSlug: g.giftSlug,
+              isEnabled: g.isEnabled,
+              priceOverride: g.priceOverride,
+            })),
+          }),
+        }),
+        fetch(`/api/rooms/${activeRoomId}/reactions/config`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            callerWallet: walletAddress,
+            configs: reactionConfigs.map((r) => ({
+              reactionSlug: r.reactionSlug,
+              isEnabled: r.isEnabled,
+            })),
+          }),
+        }),
+      ]);
+    } finally {
+      setSavingGifts(false);
+    }
   };
 
   const handleBeforeGift = async (
@@ -303,13 +371,22 @@ export default function DemoPage() {
                 </span>
               )}
               {activeRole === "OWNER" && (
-                <button
-                  onClick={() => setShowModPanel((v) => !v)}
-                  className="text-xs text-gray-500 hover:text-indigo-600 border border-gray-200 rounded-lg px-2 py-1 transition-colors"
-                  title="Gestionar moderadores"
-                >
-                  ⚙ Mods
-                </button>
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => { setShowModPanel((v) => !v); setShowGiftPanel(false); }}
+                    className={`text-xs border rounded-lg px-2 py-1 transition-colors ${showModPanel ? "bg-indigo-50 text-indigo-600 border-indigo-200" : "text-gray-500 hover:text-indigo-600 border-gray-200"}`}
+                    title="Gestionar moderadores"
+                  >
+                    ⚙ Mods
+                  </button>
+                  <button
+                    onClick={() => { setShowGiftPanel((v) => !v); setShowModPanel(false); }}
+                    className={`text-xs border rounded-lg px-2 py-1 transition-colors ${showGiftPanel ? "bg-indigo-50 text-indigo-600 border-indigo-200" : "text-gray-500 hover:text-indigo-600 border-gray-200"}`}
+                    title="Configurar regalos"
+                  >
+                    🎁 Gifts
+                  </button>
+                </div>
               )}
               <span className="text-xs text-gray-500">
                 {username || walletAddress.slice(0, 8)}
@@ -356,6 +433,103 @@ export default function DemoPage() {
               {roomMembers.filter((m) => m.role === "MODERATOR").length === 0 && (
                 <p className="text-xs text-gray-400">Sin moderadores asignados.</p>
               )}
+            </div>
+          )}
+
+          {/* Gift config panel — OWNER only */}
+          {activeRole === "OWNER" && showGiftPanel && (
+            <div className="mb-3 p-3 bg-gray-50 border border-gray-100 rounded-xl text-sm">
+              <p className="text-xs font-semibold text-gray-500 mb-3">Configurar regalos</p>
+              {giftConfigs.length === 0 ? (
+                <p className="text-xs text-gray-400">Sin regalos configurados.</p>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {giftConfigs.map((g) => (
+                    <div key={g.giftSlug} className="flex items-center gap-2">
+                      {/* Toggle */}
+                      <button
+                        onClick={() =>
+                          setGiftConfigs((prev) =>
+                            prev.map((c) =>
+                              c.giftSlug === g.giftSlug ? { ...c, isEnabled: !c.isEnabled } : c
+                            )
+                          )
+                        }
+                        className={`w-8 h-4 rounded-full transition-colors flex-shrink-0 ${g.isEnabled ? "bg-indigo-500" : "bg-gray-200"}`}
+                        title={g.isEnabled ? "Desactivar" : "Activar"}
+                      >
+                        <span
+                          className={`block w-3 h-3 rounded-full bg-white shadow transition-transform mx-0.5 ${g.isEnabled ? "translate-x-4" : "translate-x-0"}`}
+                        />
+                      </button>
+
+                      {/* Emoji + label */}
+                      <span className={`text-base leading-none ${g.isEnabled ? "" : "opacity-40"}`}>{g.emoji}</span>
+                      <span className={`text-xs flex-1 ${g.isEnabled ? "text-gray-700" : "text-gray-400"}`}>{g.label}</span>
+
+                      {/* Price override */}
+                      <div className="flex items-center gap-1">
+                        <span className="text-[10px] text-gray-400">{g.priceAsset}</span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          placeholder={g.defaultPrice}
+                          value={g.priceOverride ?? ""}
+                          onChange={(e) =>
+                            setGiftConfigs((prev) =>
+                              prev.map((c) =>
+                                c.giftSlug === g.giftSlug
+                                  ? { ...c, priceOverride: e.target.value === "" ? null : e.target.value }
+                                  : c
+                              )
+                            )
+                          }
+                          disabled={!g.isEnabled}
+                          className="w-16 px-1.5 py-1 text-xs border border-gray-200 rounded-lg text-right focus:outline-none focus:ring-1 focus:ring-indigo-300 disabled:opacity-40"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {/* Reactions section */}
+              {reactionConfigs.length > 0 && (
+                <>
+                  <p className="text-xs font-semibold text-gray-500 mt-4 mb-2">Reacciones</p>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {reactionConfigs.map((r) => (
+                      <button
+                        key={r.reactionSlug}
+                        onClick={() =>
+                          setReactionConfigs((prev) =>
+                            prev.map((c) =>
+                              c.reactionSlug === r.reactionSlug ? { ...c, isEnabled: !c.isEnabled } : c
+                            )
+                          )
+                        }
+                        className={`flex items-center gap-2 px-2 py-1.5 rounded-lg border text-left transition-colors ${
+                          r.isEnabled
+                            ? "bg-white border-indigo-200 text-gray-700"
+                            : "bg-gray-50 border-gray-200 text-gray-400 opacity-60"
+                        }`}
+                      >
+                        <span className="text-lg leading-none">{r.emoji}</span>
+                        <span className="text-xs flex-1">{r.label}</span>
+                        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${r.isEnabled ? "bg-indigo-400" : "bg-gray-300"}`} />
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              <button
+                onClick={handleSaveGiftConfigs}
+                disabled={savingGifts || (giftConfigs.length === 0 && reactionConfigs.length === 0)}
+                className="mt-3 w-full py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium rounded-lg disabled:opacity-50 transition-colors"
+              >
+                {savingGifts ? "Guardando…" : "Guardar cambios"}
+              </button>
             </div>
           )}
 
