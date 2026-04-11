@@ -43,10 +43,14 @@ function axisAngleDeg(i: number) {
   return START_DEG + i * STEP_DEG
 }
 
+function r4(n: number) {
+  return Math.round(n * 1e4) / 1e4
+}
+
 function vertexAt(value: number, index: number, outerR = OUTER_RADIUS) {
   const rad = toRad(axisAngleDeg(index))
   const r   = (value / 100) * outerR
-  return { x: CX + r * Math.cos(rad), y: CY + r * Math.sin(rad) }
+  return { x: r4(CX + r * Math.cos(rad)), y: r4(CY + r * Math.sin(rad)) }
 }
 
 function pointsStr(stats: AgentStats) {
@@ -66,7 +70,7 @@ function refPentagonPoints(fraction: number) {
 function labelPos(index: number) {
   const rad = toRad(axisAngleDeg(index))
   const r   = OUTER_RADIUS + LABEL_OFFSET
-  return { x: CX + r * Math.cos(rad), y: CY + r * Math.sin(rad) }
+  return { x: r4(CX + r * Math.cos(rad)), y: r4(CY + r * Math.sin(rad)) }
 }
 
 // Decide SVG text-anchor based on the axis angle
@@ -188,8 +192,8 @@ export default function RadarChart({ stats, team, prevStats, maxHeight = 180 }: 
       {AXIS_ORDER.map((key, i) => {
         const v       = vertexAt(stats[key], i)
         const rad     = toRad(axisAngleDeg(i))
-        const vx      = v.x - VALUE_INSET * Math.cos(rad)
-        const vy      = v.y - VALUE_INSET * Math.sin(rad)
+        const vx      = r4(v.x - VALUE_INSET * Math.cos(rad))
+        const vy      = r4(v.y - VALUE_INSET * Math.sin(rad))
 
         return (
           <motion.g

@@ -12,6 +12,7 @@ import { GameEngine }   from '@/lib/gameEngine'
 import type { DecisionLogEntry, MatchState, Team } from '@/lib/types'
 import type { AgentView } from '@/components/game/AgentPanel'
 import type { ChatMessage } from '@/components/game/EmojiChat'
+import type { FeedEntry } from '@/components/game/MatchCanvas'
 import { MATCH_DURATION_MS } from '@/lib/constants'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -72,6 +73,7 @@ export default function GamePage() {
   // ── State ─────────────────────────────────────────────────────────────────
   const [matchState,   setMatchState]   = useState<MatchState>(() => engineRef.current!.getState())
   const [decisionLog,  setDecisionLog]  = useState<DecisionLogEntry[]>([])
+  const [feedEntries,  setFeedEntries]  = useState<FeedEntry[]>([])
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
   const [userTeam,     setUserTeam]     = useState<Team>('red')
   const [agentView,    setAgentView]    = useState<AgentView>('agents')
@@ -131,6 +133,10 @@ export default function GamePage() {
   }, [])
 
   // ── Handlers ──────────────────────────────────────────────────────────────
+
+  const handleFeedEntry = useCallback((entry: FeedEntry) => {
+    setFeedEntries(prev => [...prev, entry].slice(-30))
+  }, [])
 
   const handleGoal = useCallback((team: Team) => {
     engineRef.current!.processGoal(team)
@@ -246,11 +252,12 @@ export default function GamePage() {
 
         {/* Left column (65%) */}
         <div className="flex flex-col overflow-hidden border-r" style={{ flex: '65 65 0%', borderColor: 'var(--border)' }}>
-          <div className="flex-1 overflow-hidden border-b" style={{ borderColor: 'var(--border)', minHeight: 340 }}>
-            <MatchCanvas matchState={matchState} onGoal={handleGoal} />
+          <div className="flex-1 overflow-hidden border-b" style={{ borderColor: 'var(--border)' }}>
+            <MatchCanvas matchState={matchState} onGoal={handleGoal} onFeedEntry={handleFeedEntry} />
           </div>
 
-          <div className="relative overflow-hidden" style={{ height: 240 }}>
+          {/* Chat / Grid event — takes all remaining space */}
+          <div className="relative shrink-0 overflow-hidden" style={{ height: 240 }}>
             <AnimatePresence mode="wait">
               {isGrid && matchState.currentGridEvent ? (
                 <motion.div key="grid-event" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
@@ -281,7 +288,7 @@ export default function GamePage() {
 
         {/* Right column (35%) */}
         <div className="flex flex-col overflow-hidden" style={{ flex: '35 35 0%' }}>
-          <div className="overflow-hidden border-b" style={{ borderColor: 'var(--border)', height: agentView === 'agents' ? 360 : 'auto' }}>
+          <div className="shrink-0 border-b" style={{ borderColor: 'var(--border)', height: agentView === 'agents' ? 360 : 'auto' }}>
             <AgentPanel
               agents={matchState.agents}
               userTeam={userTeam}
@@ -292,20 +299,26 @@ export default function GamePage() {
             />
           </div>
 
-          {agentView === 'support' && <StakePanel
-            userTeam={userTeam}
-            elapsedMs={matchState.elapsedMs}
-            stakingOpen={matchState.stakingOpen}
-            stakedAmount={stakedAmount}
-            stakedTeam={stakedTeam}
-            matchStatus={matchState.status}
-            score={matchState.score}
-            onStake={handleStake}
-          />}
+          {/* Agent decisions fills the black space in the Agents tab */}
+          {agentView === 'agents' && (
+            <div className="flex-1 overflow-hidden">
+              <AgentDecisionLog entries={decisionLog} activeTab={userTeam} />
+            </div>
+          )}
 
-          <div className="flex-1 overflow-hidden" style={{ minHeight: 100 }}>
-            <AgentDecisionLog entries={decisionLog} activeTab={userTeam} />
-          </div>
+          {agentView === 'support' && (
+            <StakePanel
+              userTeam={userTeam}
+              elapsedMs={matchState.elapsedMs}
+              stakingOpen={matchState.stakingOpen}
+              stakedAmount={stakedAmount}
+              stakedTeam={stakedTeam}
+              matchStatus={matchState.status}
+              score={matchState.score}
+              feedEntries={feedEntries}
+              onStake={handleStake}
+            />
+          )}
         </div>
 
       </div>

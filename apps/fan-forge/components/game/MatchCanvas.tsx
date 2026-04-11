@@ -40,7 +40,7 @@ const ROD_DEFS: RodDef[] = [
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const CANVAS_H      = 280
+const CANVAS_H      = 360
 const FIELD_PAD_X   = 40
 const FIELD_PAD_Y   = 20
 const GOAL_DEPTH    = 18
@@ -93,7 +93,8 @@ export default function MatchCanvas({ matchState, onGoal, onFeedEntry }: MatchCa
   useEffect(() => { onGoalRef.current = onGoal },    [onGoal])
   useEffect(() => { onFeedRef.current = onFeedEntry }, [onFeedEntry])
 
-  const dimsRef = useRef({ w: 800 })
+  const dimsRef    = useRef({ w: 800, h: CANVAS_H })
+  const canvasHRef = useRef(CANVAS_H)
 
   // Physics (never triggers React re-render)
   const phys = useRef({
@@ -165,15 +166,17 @@ export default function MatchCanvas({ matchState, onGoal, onFeedEntry }: MatchCa
     function handleResize() {
       dpr = window.devicePixelRatio || 1
       const w = container.clientWidth
+      const h = container.clientHeight || canvasHRef.current
+      canvasHRef.current  = h
       canvas.width        = w * dpr
-      canvas.height       = CANVAS_H * dpr
+      canvas.height       = h * dpr
       canvas.style.width  = `${w}px`
-      canvas.style.height = `${CANVAS_H}px`
-      dimsRef.current     = { w }
+      canvas.style.height = `${h}px`
+      dimsRef.current     = { w, h }
       if (!initialized) {
         phys.current.bx   = w / 2
-        phys.current.by   = CANVAS_H / 2
-        phys.current.rodY = ROD_DEFS.map(() => CANVAS_H / 2)
+        phys.current.by   = h / 2
+        phys.current.rodY = ROD_DEFS.map(() => h / 2)
         initialized = true
       }
     }
@@ -186,11 +189,12 @@ export default function MatchCanvas({ matchState, onGoal, onFeedEntry }: MatchCa
 
     function field() {
       const w = dimsRef.current.w
+      const h = canvasHRef.current
       return {
         x: FIELD_PAD_X,
         y: FIELD_PAD_Y,
         w: w - FIELD_PAD_X * 2,
-        h: CANVAS_H - FIELD_PAD_Y * 2,
+        h: h - FIELD_PAD_Y * 2,
       }
     }
 
@@ -230,7 +234,7 @@ export default function MatchCanvas({ matchState, onGoal, onFeedEntry }: MatchCa
       const w = dimsRef.current.w
 
       ctx.fillStyle = '#0a0a0f'
-      ctx.fillRect(0, 0, w, CANVAS_H)
+      ctx.fillRect(0, 0, w, canvasHRef.current)
 
       // Stripes
       const sw = f.w / 8
@@ -343,7 +347,7 @@ export default function MatchCanvas({ matchState, onGoal, onFeedEntry }: MatchCa
 
       const hexA = Math.round(fl.fa * 50).toString(16).padStart(2, '0')
       ctx.fillStyle = `${c}${hexA}`
-      ctx.fillRect(0, 0, w, CANVAS_H)
+      ctx.fillRect(0, 0, w, canvasHRef.current)
 
       if (fl.ta > 0) {
         ctx.save()
@@ -483,42 +487,9 @@ export default function MatchCanvas({ matchState, onGoal, onFeedEntry }: MatchCa
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex flex-col" style={{ background: 'var(--bg-panel)' }}>
-      {/* Canvas */}
-      <div ref={containerRef} style={{ height: CANVAS_H }}>
+    <div className="flex h-full flex-col" style={{ background: 'var(--bg-panel)' }}>
+      <div ref={containerRef} className="min-h-0 flex-1">
         <canvas ref={canvasRef} style={{ display: 'block' }} />
-      </div>
-
-      {/* Play-by-play feed */}
-      <div
-        className="overflow-y-auto border-t"
-        style={{ maxHeight: 120, borderColor: 'var(--border)', background: 'var(--bg-surface)' }}
-      >
-        {feed.length === 0 ? (
-          <p
-            className="px-3 py-2 text-xs"
-            style={{ fontFamily: 'var(--font-space-mono)', color: 'var(--text-dim)' }}
-          >
-            match events will appear here
-          </p>
-        ) : (
-          feed.map((entry) => (
-            <div
-              key={entry.id}
-              className="flex gap-2 border-b px-3 py-1 text-xs"
-              style={{
-                fontFamily: 'var(--font-space-mono)',
-                borderColor: 'var(--border)',
-                color: entry.team === 'red' ? RED : entry.team === 'blue' ? BLUE : 'var(--text-muted)',
-              }}
-            >
-              <span style={{ color: 'var(--text-dim)', flexShrink: 0 }}>
-                [{formatMs(entry.elapsedMs)}]
-              </span>
-              <span>{entry.message}</span>
-            </div>
-          ))
-        )}
       </div>
     </div>
   )
