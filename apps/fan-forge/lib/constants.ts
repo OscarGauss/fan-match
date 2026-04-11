@@ -21,6 +21,15 @@ export const STAT_MIN = 0;
 export const STAT_MAX = 100;
 export const STAT_UPGRADE_AMOUNT = 10;
 export const BASE_STAT_VALUE = 50;
+export const COORDINATION_BOOST_PER_WIN = 15;
+
+export const STAT_LABELS = {
+  goalkeeper:  'GK',
+  defense:     'DEF',
+  midfield:    'MID',
+  forward:     'FWD',
+  coordination:'COO',
+} as const satisfies Record<string, string>;
 
 // ── Grid Event target shapes ─────────────────────────────────────────────────
 // Each shape is GRID_ROWS × GRID_COLS (8 × 12).

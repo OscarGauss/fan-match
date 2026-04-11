@@ -10,6 +10,7 @@ import {
   STAT_MAX,
   STAT_UPGRADE_AMOUNT,
   BASE_STAT_VALUE,
+  COORDINATION_BOOST_PER_WIN,
   GRID_TARGETS,
 } from './constants';
 import { decideUpgrade } from './agentLogic';
@@ -28,10 +29,11 @@ import type {
 
 function makeStats(): AgentStats {
   return {
-    goalkeeper: BASE_STAT_VALUE,
-    defense: BASE_STAT_VALUE,
-    midfield: BASE_STAT_VALUE,
-    forward: BASE_STAT_VALUE,
+    goalkeeper:   BASE_STAT_VALUE,
+    defense:      BASE_STAT_VALUE,
+    midfield:     BASE_STAT_VALUE,
+    forward:      BASE_STAT_VALUE,
+    coordination: BASE_STAT_VALUE,
   };
 }
 
@@ -169,10 +171,11 @@ export class GameEngine {
     agent.stats[statKey] = Math.min(STAT_MAX, oldValue + STAT_UPGRADE_AMOUNT);
 
     const statLabels: Record<keyof AgentStats, string> = {
-      goalkeeper: 'goalkeeper reflexes',
-      defense: 'defense positioning',
-      midfield: 'midfield speed',
-      forward: 'forward power',
+      goalkeeper:   'goalkeeper reflexes',
+      defense:      'defense positioning',
+      midfield:     'midfield speed',
+      forward:      'forward power',
+      coordination: 'team coordination',
     };
 
     const scoreStr = `score ${this.state.score.red}-${this.state.score.blue}`;
@@ -213,6 +216,9 @@ export class GameEngine {
     for (const key of Object.keys(stats) as (keyof AgentStats)[]) {
       stats[key] = Math.min(STAT_MAX, Math.round(stats[key] * AGENT_BOOST_MULTIPLIER));
     }
+
+    // Grid Event win also boosts coordination
+    stats.coordination = Math.min(STAT_MAX, stats.coordination + COORDINATION_BOOST_PER_WIN);
 
     agent.activeBoost = true;
     agent.boostExpiresAt = this.state.elapsedMs + AGENT_BOOST_DURATION_MS;

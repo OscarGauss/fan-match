@@ -9,6 +9,8 @@ export interface AgentStats {
   midfield: number;
   /** Forward power stat (0–100) */
   forward: number;
+  /** Team coordination — increases when team wins a Grid Event (0–100) */
+  coordination: number;
 }
 
 export interface AgentState {

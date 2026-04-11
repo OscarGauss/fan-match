@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { AgentState, AgentStats, Team } from '@/lib/types'
+import { STAT_LABELS } from '@/lib/constants'
+import RadarChart from './RadarChart'
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
@@ -18,14 +20,7 @@ export interface AgentPanelProps {
 
 const FUND_AMOUNTS = [0.05, 0.10, 0.25] as const
 
-const STAT_LABELS: Record<keyof AgentStats, string> = {
-  goalkeeper: 'Goalkeeper · Reflexes',
-  defense:    'Defense · Positioning',
-  midfield:   'Midfield · Speed',
-  forward:    'Forward · Power',
-}
-
-const STAT_ORDER: (keyof AgentStats)[] = ['goalkeeper', 'defense', 'midfield', 'forward']
+const COMPACT_ORDER: (keyof AgentStats)[] = ['goalkeeper', 'defense', 'midfield', 'forward', 'coordination']
 
 const MONO: React.CSSProperties = { fontFamily: 'var(--font-space-mono)' }
 
@@ -74,70 +69,6 @@ function AmountPills<T extends number>({
           {a.toFixed(2)}
         </button>
       ))}
-    </div>
-  )
-}
-
-/** Single stat row with animated bar */
-function StatRow({
-  label,
-  value,
-  color,
-  prevValue,
-}: {
-  label:     string
-  value:     number
-  color:     string
-  prevValue: number
-}) {
-  const upgraded = value > prevValue
-  const [showArrow, setShowArrow] = useState(false)
-
-  useEffect(() => {
-    if (upgraded) {
-      setShowArrow(true)
-      const t = setTimeout(() => setShowArrow(false), 2000)
-      return () => clearTimeout(t)
-    }
-  }, [value, upgraded])
-
-  return (
-    <div className="flex flex-col gap-0.5">
-      <div className="flex items-center justify-between">
-        <span className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
-          {label}
-        </span>
-        <div className="flex items-center gap-1">
-          <AnimatePresence>
-            {showArrow && (
-              <motion.span
-                key="arrow"
-                initial={{ opacity: 0, y: 4 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                className="text-[10px] font-bold"
-                style={{ color }}
-              >
-                ↑
-              </motion.span>
-            )}
-          </AnimatePresence>
-          <span className="text-[10px]" style={{ ...MONO, color: 'var(--text-muted)' }}>
-            {value}
-          </span>
-        </div>
-      </div>
-      {/* Track */}
-      <div className="h-[4px] w-full rounded-full" style={{ background: 'var(--bg-surface)' }}>
-        <motion.div
-          className="h-full rounded-full"
-          style={{ background: color }}
-          initial={false}
-          animate={{ width: `${value}%` }}
-          transition={{ duration: 0.6, ease: 'easeOut' }}
-        />
-      </div>
     </div>
   )
 }
@@ -214,24 +145,36 @@ export default function AgentPanel({
 
   // Track previous stats for upgrade detection
   const prevStatsRef = useRef<AgentStats>({ ...agent.stats })
-  const [prevStats, setPrevStats]         = useState<AgentStats>({ ...agent.stats })
+  const [prevStats, setPrevStats]               = useState<AgentStats>({ ...agent.stats })
+  const [flashingStats, setFlashingStats]       = useState<Set<keyof AgentStats>>(new Set())
+  const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
-    if (
-      agent.stats.goalkeeper !== prevStatsRef.current.goalkeeper ||
-      agent.stats.defense    !== prevStatsRef.current.defense    ||
-      agent.stats.midfield   !== prevStatsRef.current.midfield   ||
-      agent.stats.forward    !== prevStatsRef.current.forward
-    ) {
-      setPrevStats({ ...prevStatsRef.current })
-      prevStatsRef.current = { ...agent.stats }
+    const cur  = agent.stats
+    const prev = prevStatsRef.current
+    const changed = COMPACT_ORDER.some(k => cur[k] !== prev[k])
+    if (!changed) return
+
+    // Detect upgrades for compact row flash
+    const fresh = new Set<keyof AgentStats>()
+    for (const k of COMPACT_ORDER) {
+      if (cur[k] > prev[k]) fresh.add(k)
     }
+    if (fresh.size > 0) {
+      setFlashingStats(fresh)
+      if (flashTimerRef.current) clearTimeout(flashTimerRef.current)
+      flashTimerRef.current = setTimeout(() => setFlashingStats(new Set()), 1500)
+    }
+
+    setPrevStats({ ...prev })
+    prevStatsRef.current = { ...cur }
   }, [agent.stats])
 
   // Close fund selector when switching tabs
   useEffect(() => {
     setFundOpen(false)
     setSelectedFund(null)
+    setFlashingStats(new Set())
     prevStatsRef.current = { ...agents[activeTab].stats }
     setPrevStats({ ...agents[activeTab].stats })
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -354,17 +297,34 @@ export default function AgentPanel({
           </div>
         )}
 
-        {/* ── Stat bars ─────────────────────────────────────────────── */}
-        <div className="flex flex-col gap-2.5">
-          {STAT_ORDER.map(role => (
-            <StatRow
-              key={role}
-              label={STAT_LABELS[role]}
-              value={agent.stats[role]}
-              color={color}
-              prevValue={prevStats[role]}
-            />
-          ))}
+        {/* ── Radar chart ───────────────────────────────────────────── */}
+        <div className="flex flex-col gap-2">
+          <RadarChart stats={agent.stats} team={activeTab} prevStats={prevStats} />
+
+          {/* Compact stat row */}
+          <div className="flex flex-wrap justify-center gap-x-2 gap-y-0.5">
+            {COMPACT_ORDER.map((key, idx) => {
+              const isFlashing = flashingStats.has(key)
+              return (
+                <span key={key} className="flex items-center gap-1">
+                  {idx > 0 && (
+                    <span style={{ ...MONO, color: 'var(--text-muted)', fontSize: 10 }}>·</span>
+                  )}
+                  <motion.span
+                    style={{
+                      ...MONO,
+                      fontSize: 10,
+                      color: isFlashing ? color : 'var(--text-muted)',
+                    }}
+                    animate={{ color: isFlashing ? color : 'var(--text-muted)' }}
+                    transition={{ duration: isFlashing ? 0 : 0.4 }}
+                  >
+                    {STAT_LABELS[key]} · {agent.stats[key]}
+                  </motion.span>
+                </span>
+              )
+            })}
+          </div>
         </div>
 
         {/* ── Support thermometer ───────────────────────────────────── */}
