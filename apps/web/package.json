@@ -1,0 +1,40 @@
+{
+  "name": "web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "db:generate": "dotenv -e .env.local -- prisma generate",
+    "db:push": "dotenv -e .env.local -- prisma db push",
+    "db:studio": "dotenv -e .env.local -- prisma studio",
+    "db:seed": "dotenv -e .env.local -- tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "@fan-match/live-chat": "workspace:*",
+    "@prisma/adapter-pg": "^7.7.0",
+    "@pollar/core": "^0.5.3",
+    "@pollar/react": "^0.5.3",
+    "ably": "^2.21.0",
+    "next": "16.2.3",
+    "react": "19.2.5",
+    "react-dom": "19.2.5"
+  },
+  "devDependencies": {
+    "@prisma/client": "^7.7.0",
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^25.6.0",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "babel-plugin-react-compiler": "1.0.0",
+    "dotenv-cli": "^11.0.0",
+    "eslint": "^10.2.0",
+    "eslint-config-next": "16.2.3",
+    "prisma": "^7.7.0",
+    "tailwindcss": "^4",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.2"
+  }
+}

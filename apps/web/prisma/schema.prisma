@@ -1,0 +1,150 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Users — identified by Pollar wallet address (Stellar G-address)
+// ---------------------------------------------------------------------------
+model User {
+  id            String   @id @default(cuid())
+  walletAddress String   @unique
+  username      String?
+  avatarColor   String   @default("#6366f1")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  messages    Message[]
+  giftEvents  GiftEvent[]
+  memberships RoomMember[]
+  bans        Ban[]
+}
+
+// ---------------------------------------------------------------------------
+// Rooms — one per match / event
+// ---------------------------------------------------------------------------
+model Room {
+  id              String   @id @default(cuid())
+  name            String
+  description     String?
+  // Wallet that receives gift payments. Defaults to owner wallet if null.
+  recipientWallet String?
+  slowModeSeconds Int      @default(0) // 0 = disabled
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  members    RoomMember[]
+  messages   Message[]
+  giftEvents GiftEvent[]
+  giftConfig RoomGiftConfig[]
+  bans       Ban[]
+}
+
+// ---------------------------------------------------------------------------
+// Room membership & roles
+// ---------------------------------------------------------------------------
+enum RoomRole {
+  OWNER
+  MODERATOR
+}
+
+model RoomMember {
+  id        String   @id @default(cuid())
+  roomId    String
+  userId    String
+  role      RoomRole
+  createdAt DateTime @default(now())
+
+  room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([roomId, userId])
+}
+
+// ---------------------------------------------------------------------------
+// Messages
+// ---------------------------------------------------------------------------
+model Message {
+  id        String    @id @default(cuid())
+  content   String
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  roomId String
+  userId String
+  room   Room   @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([roomId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Gift catalogue — global, seeded on deploy
+// ---------------------------------------------------------------------------
+model GiftType {
+  slug         String  @id // 'rose', 'ball', 'trophy' ...
+  emoji        String
+  label        String
+  priceAmount  String  // decimal string e.g. "0.50"
+  priceAsset   String  @default("USDC")
+  sortOrder    Int     @default(0)
+
+  roomConfigs RoomGiftConfig[]
+  giftEvents  GiftEvent[]
+}
+
+// ---------------------------------------------------------------------------
+// Per-room gift configuration — which gifts are enabled, optional price override
+// ---------------------------------------------------------------------------
+model RoomGiftConfig {
+  id            String  @id @default(cuid())
+  isEnabled     Boolean @default(true)
+  priceOverride String? // if set, overrides GiftType.priceAmount for this room
+
+  roomId   String
+  giftSlug String
+  room     Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  gift     GiftType @relation(fields: [giftSlug], references: [slug], onDelete: Cascade)
+
+  @@unique([roomId, giftSlug])
+}
+
+// ---------------------------------------------------------------------------
+// Gift events — each time someone sends a gift
+// ---------------------------------------------------------------------------
+model GiftEvent {
+  id       String   @id @default(cuid())
+  quantity Int      @default(1)
+  txHash   String?  // Stellar transaction hash for payment verification
+  createdAt DateTime @default(now())
+
+  roomId   String
+  userId   String
+  giftSlug String
+  room     Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  gift     GiftType @relation(fields: [giftSlug], references: [slug], onDelete: Cascade)
+
+  @@index([roomId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Bans — per room
+// ---------------------------------------------------------------------------
+model Ban {
+  id       String   @id @default(cuid())
+  bannedAt DateTime @default(now())
+
+  roomId String
+  userId String
+  room   Room   @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([roomId, userId])
+}

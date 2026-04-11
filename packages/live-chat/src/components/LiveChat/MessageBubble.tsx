@@ -1,0 +1,86 @@
+"use client";
+
+import type { ChatMessage, RoomRole } from "../../types";
+
+interface MessageBubbleProps {
+  message: ChatMessage;
+  currentUserId?: string;
+  role?: RoomRole;
+  onDelete?: (messageId: string) => void;
+  onBan?: (userId: string) => void;
+}
+
+function getInitials(name: string | null, wallet: string): string {
+  if (name) return name.slice(0, 2).toUpperCase();
+  return wallet.slice(0, 2).toUpperCase();
+}
+
+export function MessageBubble({
+  message,
+  currentUserId,
+  role = "VIEWER",
+  onDelete,
+  onBan,
+}: MessageBubbleProps) {
+  const isMod = role === "OWNER" || role === "MODERATOR";
+  const isOwnMessage = message.user.id === currentUserId;
+  const displayName = message.user.username ?? `${message.user.walletAddress.slice(0, 6)}...`;
+  const time = new Date(message.createdAt).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  return (
+    <div className="group flex items-start gap-2 px-3 py-1.5 hover:bg-gray-50 rounded-lg">
+      {/* Avatar */}
+      <div
+        className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold"
+        style={{ backgroundColor: message.user.avatarColor }}
+      >
+        {getInitials(message.user.username, message.user.walletAddress)}
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-baseline gap-1.5">
+          <span
+            className="text-xs font-semibold truncate"
+            style={{ color: message.user.avatarColor }}
+          >
+            {displayName}
+          </span>
+          <span className="text-[10px] text-gray-400 flex-shrink-0">{time}</span>
+        </div>
+        <p className="text-sm text-gray-800 break-words leading-snug">{message.content}</p>
+      </div>
+
+      {/* Mod actions — shown on hover */}
+      {isMod && !isOwnMessage && (
+        <div className="flex-shrink-0 hidden group-hover:flex items-center gap-1">
+          {onDelete && (
+            <button
+              onClick={() => onDelete(message.id)}
+              className="p-1 text-gray-400 hover:text-red-500 rounded transition-colors"
+              title="Delete message"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
+          )}
+          {onBan && (
+            <button
+              onClick={() => onBan(message.user.id)}
+              className="p-1 text-gray-400 hover:text-orange-500 rounded transition-colors"
+              title="Ban user"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+              </svg>
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
