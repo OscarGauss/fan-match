@@ -10,6 +10,7 @@ import GridEvent        from '@/components/game/GridEvent'
 import StakePanel       from '@/components/game/StakePanel'
 import { GameEngine }   from '@/lib/gameEngine'
 import type { DecisionLogEntry, MatchState, Team } from '@/lib/types'
+import type { AgentView } from '@/components/game/AgentPanel'
 import type { ChatMessage } from '@/components/game/EmojiChat'
 import { MATCH_DURATION_MS } from '@/lib/constants'
 
@@ -22,6 +23,39 @@ function formatTimer(elapsedMs: number) {
 }
 
 let chatSeq = 0
+
+// ── Team toggle (header) ──────────────────────────────────────────────────────
+
+function TeamToggle({ value, onChange }: { value: Team; onChange: (t: Team) => void }) {
+  return (
+    <div
+      className="flex overflow-hidden rounded"
+      style={{ border: '1px solid var(--border-accent)' }}
+    >
+      {(['red', 'blue'] as Team[]).map(t => {
+        const active = value === t
+        return (
+          <button
+            key={t}
+            onClick={() => onChange(t)}
+            className="px-3 py-1 text-[11px] font-bold uppercase tracking-widest transition-all"
+            style={{
+              fontFamily: 'var(--font-space-mono)',
+              background: active
+                ? t === 'red' ? 'var(--red)' : 'var(--blue)'
+                : 'transparent',
+              color:  active ? '#0a0a0f' : 'var(--text-muted)',
+              border: 'none',
+              cursor: 'pointer',
+            }}
+          >
+            {t === 'red' ? 'Red' : 'Blue'}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
@@ -39,8 +73,8 @@ export default function GamePage() {
   const [matchState,   setMatchState]   = useState<MatchState>(() => engineRef.current!.getState())
   const [decisionLog,  setDecisionLog]  = useState<DecisionLogEntry[]>([])
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
-  const [agentTab,     setAgentTab]     = useState<Team>('red')
-  const [userTeam]                      = useState<Team>('red')
+  const [userTeam,     setUserTeam]     = useState<Team>('red')
+  const [agentView,    setAgentView]    = useState<AgentView>('agents')
   const [stakedAmount, setStakedAmount] = useState<number | null>(null)
   const [stakedTeam,   setStakedTeam]   = useState<Team | null>(null)
 
@@ -52,10 +86,8 @@ export default function GamePage() {
       if (!startTimeRef.current) startTimeRef.current = Date.now()
       const elapsed = Date.now() - startTimeRef.current
 
-      // Tick returns the (mutated) engine state
       const ticked = engine.tick(elapsed)
 
-      // Snapshot all primitive/shallow values to avoid stale-closure issues
       const snap = {
         status:      ticked.status,
         elapsedMs:   ticked.elapsedMs,
@@ -74,7 +106,6 @@ export default function GamePage() {
         stakingOpen: snap.stakingOpen,
         score:       snap.score,
         agents:      snap.agents,
-        // Preserve React-managed grid & pixelsLeft while same event is active
         currentGridEvent: snap.ge === null ? null : {
           ...snap.ge,
           grid:       prev.currentGridEvent?.id === snap.ge.id
@@ -86,7 +117,7 @@ export default function GamePage() {
         },
       }))
 
-      // ── Agent simulation every 30 s (match active only) ─────────────────
+      // Agent simulation every 30 s
       if (snap.status === 'active' && elapsed - lastSimRef.current >= 30_000) {
         lastSimRef.current = elapsed
         const simTeam: Team = Math.random() < 0.5 ? 'red' : 'blue'
@@ -97,13 +128,12 @@ export default function GamePage() {
     }, 100)
 
     return () => clearInterval(id)
-  }, []) // engine and refs are stable — no deps needed
+  }, [])
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
   const handleGoal = useCallback((team: Team) => {
     engineRef.current!.processGoal(team)
-    // Header score update is immediate; engine state converges on next tick
     setMatchState(prev => ({
       ...prev,
       score: { ...prev.score, [team]: prev.score[team] + 1 },
@@ -113,7 +143,6 @@ export default function GamePage() {
   const handleFundAgent = useCallback((team: Team, amount: number) => {
     const entries = engineRef.current!.applyAgentFunding(team, amount)
     setDecisionLog(prev => [...prev, ...entries].slice(-100))
-    // Updated agent stats propagate on next tick automatically
   }, [])
 
   const handlePaintPixel = useCallback((row: number, col: number) => {
@@ -126,7 +155,7 @@ export default function GamePage() {
         ...prev,
         currentGridEvent: {
           ...ge,
-          grid:       ge.grid.map((r, ri) =>
+          grid: ge.grid.map((r, ri) =>
             r.map((cell, ci) => ri === row && ci === col ? cellVal : cell)
           ),
           pixelsLeft: { ...ge.pixelsLeft, [userTeam]: ge.pixelsLeft[userTeam] - 1 },
@@ -151,7 +180,6 @@ export default function GamePage() {
 
   const handleEventEnd = useCallback((winner: Team) => {
     engineRef.current!.applyGridEventResult(winner)
-    // Status reverts to 'active' on next engine tick
   }, [])
 
   const handleEmojiSend = useCallback((emoji: string) => {
@@ -162,31 +190,26 @@ export default function GamePage() {
   }, [userTeam])
 
   const handleStake = useCallback((team: Team, amount: number) => {
-    setStakedTeam(team)
-    setStakedAmount(amount)
+    setStakedTeam(prev => prev ?? team)
+    setStakedAmount(prev => (prev ?? 0) + amount)
   }, [])
 
   // ── Derived ───────────────────────────────────────────────────────────────
-  const isGrid  = matchState.status === 'grid_event'
-  const score   = matchState.score
-  const timer   = formatTimer(matchState.elapsedMs)
+  const isGrid = matchState.status === 'grid_event'
+  const score  = matchState.score
+  const timer  = formatTimer(matchState.elapsedMs)
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div
-      className="flex h-screen flex-col overflow-hidden"
-      style={{ background: 'var(--bg-root)' }}
-    >
+    <div className="flex h-screen flex-col overflow-hidden" style={{ background: 'var(--bg-root)' }}>
+
       {/* ── Header ──────────────────────────────────────────────────────── */}
       <header
         className="flex h-14 shrink-0 items-center justify-between border-b px-5"
         style={{ borderColor: 'var(--border)', background: 'var(--bg-panel)' }}
       >
-        {/* Logo */}
-        <div className="flex items-baseline">
-          <span className="text-lg font-black" style={{ color: 'var(--text-primary)' }}>Fan</span>
-          <span className="text-lg font-black" style={{ color: 'var(--red)' }}>Forge</span>
-        </div>
+        {/* Team toggle */}
+        <TeamToggle value={userTeam} onChange={setUserTeam} />
 
         {/* Timer + Score */}
         <div className="flex items-center gap-5">
@@ -196,10 +219,8 @@ export default function GamePage() {
           >
             {timer}
           </span>
-          <div
-            className="flex items-center gap-2 text-xl font-bold"
-            style={{ fontFamily: 'var(--font-space-mono)' }}
-          >
+          <div className="flex items-center gap-2 text-xl font-bold"
+            style={{ fontFamily: 'var(--font-space-mono)' }}>
             <span style={{ color: 'var(--red)'      }}>{score.red}</span>
             <span style={{ color: 'var(--text-dim)' }}>:</span>
             <span style={{ color: 'var(--blue)'     }}>{score.blue}</span>
@@ -220,34 +241,20 @@ export default function GamePage() {
         </button>
       </header>
 
-      {/* ── Body — two columns ──────────────────────────────────────────── */}
+      {/* ── Body ────────────────────────────────────────────────────────── */}
       <div className="flex flex-1 overflow-hidden">
 
-        {/* ── Left column (65%) ─────────────────────────────────────── */}
-        <div
-          className="flex flex-col overflow-hidden border-r"
-          style={{ flex: '65 65 0%', borderColor: 'var(--border)' }}
-        >
-          {/* Match canvas — fills top, play-by-play feed included */}
-          <div
-            className="flex-1 overflow-hidden border-b"
-            style={{ borderColor: 'var(--border)', minHeight: 340 }}
-          >
+        {/* Left column (65%) */}
+        <div className="flex flex-col overflow-hidden border-r" style={{ flex: '65 65 0%', borderColor: 'var(--border)' }}>
+          <div className="flex-1 overflow-hidden border-b" style={{ borderColor: 'var(--border)', minHeight: 340 }}>
             <MatchCanvas matchState={matchState} onGoal={handleGoal} />
           </div>
 
-          {/* Emoji chat / Grid event — fixed bottom strip */}
           <div className="relative overflow-hidden" style={{ height: 240 }}>
             <AnimatePresence mode="wait">
               {isGrid && matchState.currentGridEvent ? (
-                <motion.div
-                  key="grid-event"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="absolute inset-0"
-                >
+                <motion.div key="grid-event" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="absolute inset-0">
                   <GridEvent
                     gridEvent={matchState.currentGridEvent}
                     elapsedMs={matchState.elapsedMs}
@@ -258,14 +265,8 @@ export default function GamePage() {
                   />
                 </motion.div>
               ) : (
-                <motion.div
-                  key="emoji-chat"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="absolute inset-0"
-                >
+                <motion.div key="emoji-chat" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="absolute inset-0">
                   <EmojiChat
                     team={userTeam}
                     messages={chatMessages}
@@ -278,35 +279,32 @@ export default function GamePage() {
           </div>
         </div>
 
-        {/* ── Right column (35%) ────────────────────────────────────── */}
+        {/* Right column (35%) */}
         <div className="flex flex-col overflow-hidden" style={{ flex: '35 35 0%' }}>
-          {/* Agent panel — scrollable, fixed height */}
-          <div
-            className="overflow-hidden border-b"
-            style={{ borderColor: 'var(--border)', height: 360 }}
-          >
+          <div className="overflow-hidden border-b" style={{ borderColor: 'var(--border)', height: agentView === 'agents' ? 360 : 'auto' }}>
             <AgentPanel
               agents={matchState.agents}
+              userTeam={userTeam}
               isGridEvent={isGrid}
-              activeTab={agentTab}
-              onTabChange={setAgentTab}
+              activeView={agentView}
+              onViewChange={setAgentView}
               onFundAgent={handleFundAgent}
             />
           </div>
 
-          {/* Stake panel — compact strip */}
-          <StakePanel
+          {agentView === 'support' && <StakePanel
+            userTeam={userTeam}
+            elapsedMs={matchState.elapsedMs}
             stakingOpen={matchState.stakingOpen}
             stakedAmount={stakedAmount}
             stakedTeam={stakedTeam}
             matchStatus={matchState.status}
             score={matchState.score}
             onStake={handleStake}
-          />
+          />}
 
-          {/* Agent decision log — fills remaining height */}
           <div className="flex-1 overflow-hidden" style={{ minHeight: 100 }}>
-            <AgentDecisionLog entries={decisionLog} activeTab={agentTab} />
+            <AgentDecisionLog entries={decisionLog} activeTab={userTeam} />
           </div>
         </div>
 

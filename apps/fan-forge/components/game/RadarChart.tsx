@@ -8,9 +8,10 @@ import { STAT_LABELS } from '@/lib/constants'
 // ── Props ─────────────────────────────────────────────────────────────────────
 
 export interface RadarChartProps {
-  stats:     AgentStats
-  team:      Team
+  stats:      AgentStats
+  team:       Team
   prevStats?: AgentStats
+  maxHeight?: number
 }
 
 // ── Geometry constants ────────────────────────────────────────────────────────
@@ -79,7 +80,7 @@ function textAnchor(index: number): 'middle' | 'start' | 'end' {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export default function RadarChart({ stats, team, prevStats }: RadarChartProps) {
+export default function RadarChart({ stats, team, prevStats, maxHeight = 180 }: RadarChartProps) {
   const color     = team === 'red' ? '#ff4d4d' : '#4d9fff'
   const fillColor = team === 'red' ? '#ff4d4d26' : '#4d9fff26'
 
@@ -102,7 +103,7 @@ export default function RadarChart({ stats, team, prevStats }: RadarChartProps) 
   }, [stats])
 
   return (
-    <svg viewBox="0 0 200 200" className="w-full" style={{ maxHeight: '180px' }}>
+    <svg viewBox="0 0 200 200" className="w-full" style={{ maxHeight: `${maxHeight}px` }}>
 
       {/* ── Reference pentagons ── */}
       {[0.25, 0.5, 0.75].map(f => (
