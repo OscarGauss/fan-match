@@ -10,6 +10,7 @@ export const STAKING_CLOSE_MS = 150_000; // minute 2:30
 
 export const PIXEL_PRICE_USDC = 0.01;
 export const FREE_PIXELS_PER_EVENT = 3;
+export const GRID_ROUND_DURATION_MS = 60_000; // 60 s per figure
 
 export const AGENT_BOOST_MULTIPLIER = 1.5;
 export const AGENT_BOOST_DURATION_MS = 60_000;

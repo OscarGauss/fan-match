@@ -13,7 +13,7 @@ import type { DecisionLogEntry, MatchState, Team } from '@/lib/types'
 import type { AgentView } from '@/components/game/AgentPanel'
 import type { ChatMessage } from '@/components/game/EmojiChat'
 import type { FeedEntry } from '@/components/game/MatchCanvas'
-import { MATCH_DURATION_MS, GRID_ROWS, GRID_COLS, FREE_PIXELS_PER_EVENT, GRID_TARGETS } from '@/lib/constants'
+import { MATCH_DURATION_MS, GRID_ROWS, GRID_COLS, FREE_PIXELS_PER_EVENT, GRID_TARGETS, GRID_ROUND_DURATION_MS } from '@/lib/constants'
 import type { GridEventState } from '@/lib/types'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -36,7 +36,7 @@ function makeWalletId() {
 const TX_GREEN = '#00ff88'
 const MONO_FONT: React.CSSProperties = { fontFamily: 'var(--font-space-mono)' }
 
-interface Notification { id: string }
+interface Notification { id: string; type: 'tx' | 'round'; msg?: string }
 
 // ── Team toggle (header) ──────────────────────────────────────────────────────
 
@@ -75,10 +75,11 @@ function TeamToggle({ value, onChange }: { value: Team; onChange: (t: Team) => v
 
 export default function GamePage() {
   // ── Engine (singleton, never re-created) ─────────────────────────────────
-  const engineRef    = useRef<GameEngine | null>(null)
-  const startTimeRef = useRef<number | null>(null)
-  const lastSimRef   = useRef<number>(0)
-  const myWalletId   = useRef<string>(makeWalletId())
+  const engineRef      = useRef<GameEngine | null>(null)
+  const startTimeRef   = useRef<number | null>(null)
+  const lastSimRef     = useRef<number>(0)
+  const myWalletId     = useRef<string>(makeWalletId())
+  const elapsedMsRef   = useRef<number>(0)   // always-fresh elapsed for callbacks
 
   if (!engineRef.current) {
     engineRef.current = new GameEngine('GAGENTR3DXYZ', 'GAGENTB7WXYZ')
@@ -96,13 +97,13 @@ export default function GamePage() {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [bottomView,    setBottomView]    = useState<'chat' | 'grid'>('chat')
 
-  // Persistent grid — always available, not tied to match timed events
+  // Persistent grid — always available, rotates through shapes every 60s
   const [persistentGrid, setPersistentGrid] = useState<GridEventState>(() => ({
     id:          1,
     grid:        Array.from({ length: GRID_ROWS }, () => Array(GRID_COLS).fill(0)),
     targetShape: GRID_TARGETS[0] as number[][],
     startMs:     0,
-    endMs:       Number.MAX_SAFE_INTEGER,
+    endMs:       GRID_ROUND_DURATION_MS,
     pixelsLeft:  { red: FREE_PIXELS_PER_EVENT, blue: FREE_PIXELS_PER_EVENT },
   }))
 
@@ -113,6 +114,7 @@ export default function GamePage() {
     const id = setInterval(() => {
       if (!startTimeRef.current) startTimeRef.current = Date.now()
       const elapsed = Date.now() - startTimeRef.current
+      elapsedMsRef.current = elapsed
 
       const ticked = engine.tick(elapsed)
 
@@ -199,9 +201,48 @@ export default function GamePage() {
     }))
   }, [userTeam])
 
+  const addNotification = useCallback((type: 'tx' | 'round', msg?: string, duration = 3000) => {
+    const id = String(++notifSeq)
+    setNotifications(prev => [...prev, { id, type, msg }])
+    setTimeout(() => setNotifications(prev => prev.filter(n => n.id !== id)), duration)
+  }, [])
+
+  const handleToast = useCallback(() => addNotification('tx'), [addNotification])
+
+  const dismissNotif = useCallback((id: string) => {
+    setNotifications(prev => prev.filter(n => n.id !== id))
+  }, [])
+
   const handleEventEnd = useCallback((winner: Team) => {
     engineRef.current!.applyGridEventResult(winner)
-  }, [])
+
+    const winnerLabel = winner === 'red' ? 'Red' : 'Blue'
+    const roundMsg    = `${winnerLabel} wins the round · ×1.5 boost applied`
+
+    // System message visible in Chat tab
+    setChatMessages(prev => [
+      ...prev,
+      { id: String(++chatSeq), team: winner, emoji: '', sentAt: Date.now(),
+        sender: 'system', type: 'system' as const, msg: roundMsg },
+    ].slice(-20))
+
+    // Global notification visible regardless of active tab
+    addNotification('round', roundMsg, 4000)
+
+    // Advance to next shape
+    setPersistentGrid(prev => {
+      const nextId = (prev.id % GRID_TARGETS.length) + 1
+      const nowMs  = elapsedMsRef.current
+      return {
+        id:          nextId,
+        grid:        Array.from({ length: GRID_ROWS }, () => Array(GRID_COLS).fill(0)),
+        targetShape: GRID_TARGETS[nextId - 1] as number[][],
+        startMs:     nowMs,
+        endMs:       nowMs + GRID_ROUND_DURATION_MS,
+        pixelsLeft:  { red: FREE_PIXELS_PER_EVENT, blue: FREE_PIXELS_PER_EVENT },
+      }
+    })
+  }, [addNotification])
 
   const handleEmojiSend = useCallback((emoji: string) => {
     setChatMessages(prev => [
@@ -213,16 +254,6 @@ export default function GamePage() {
   const handleStake = useCallback((team: Team, amount: number) => {
     setStakedTeam(prev => prev ?? team)
     setStakedAmount(prev => (prev ?? 0) + amount)
-  }, [])
-
-  const handleToast = useCallback(() => {
-    const id = String(++notifSeq)
-    setNotifications(prev => [...prev, { id }])
-    setTimeout(() => setNotifications(prev => prev.filter(n => n.id !== id)), 3000)
-  }, [])
-
-  const dismissNotif = useCallback((id: string) => {
-    setNotifications(prev => prev.filter(n => n.id !== id))
   }, [])
 
   // ── Derived ───────────────────────────────────────────────────────────────
@@ -282,7 +313,7 @@ export default function GamePage() {
           </div>
 
           {/* Bottom panel: Chat / Grid toggle */}
-          <div className="flex shrink-0 flex-col overflow-hidden" style={{ height: 240 }}>
+          <div className="flex shrink-0 flex-col overflow-hidden" style={{ height: 290 }}>
             {/* Tab bar */}
             <div
               className="flex shrink-0 border-b"
@@ -403,19 +434,27 @@ export default function GamePage() {
                 ...MONO_FONT,
                 fontSize:        10,
                 background:      'var(--bg-panel)',
-                borderColor:     TX_GREEN,
+                borderColor:     notif.type === 'round' ? 'var(--gold)' : TX_GREEN,
                 color:           'var(--text-muted)',
                 transformOrigin: 'right center',
-                // subtle scale-down for items further back in the stack
                 transform:       `scale(${1 - (notifications.length - 1 - i) * 0.025})`,
               }}
             >
-              <span style={{ color: TX_GREEN }}>✓</span>
-              <span>
-                tx confirmed ·{' '}
-                <span style={{ color: TX_GREEN }}>0.01 USDC</span>
-                {' '}· testnet
-              </span>
+              {notif.type === 'round' ? (
+                <>
+                  <span style={{ color: 'var(--gold)' }}>★</span>
+                  <span style={{ color: 'var(--gold)' }}>{notif.msg}</span>
+                </>
+              ) : (
+                <>
+                  <span style={{ color: TX_GREEN }}>✓</span>
+                  <span>
+                    tx confirmed ·{' '}
+                    <span style={{ color: TX_GREEN }}>0.01 USDC</span>
+                    {' '}· testnet
+                  </span>
+                </>
+              )}
               <button
                 onClick={() => dismissNotif(notif.id)}
                 className="ml-2 flex h-4 w-4 items-center justify-center rounded-full text-[11px] leading-none transition-colors"
@@ -425,7 +464,10 @@ export default function GamePage() {
                   border:     '1px solid var(--border)',
                   cursor:     'pointer',
                 }}
-                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = TX_GREEN }}
+                onMouseEnter={e => {
+                  const c = notif.type === 'round' ? 'var(--gold)' : TX_GREEN
+                  ;(e.currentTarget as HTMLButtonElement).style.color = c
+                }}
                 onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-dim)' }}
               >
                 ×

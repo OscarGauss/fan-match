@@ -14,13 +14,12 @@ export interface GridEventProps {
   onBuyPixels:  (count: number) => void
   onEventEnd?:  (winner: Team) => void
   onToast?:     () => void
-  /** When true, hides the internal header (parent provides its own tab bar) */
   hideHeader?:  boolean
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const CELL_SIZE = 18
+const CELL_SIZE = 24
 const CELL_GAP  = 2
 
 const BUY_OPTIONS = [
@@ -71,46 +70,44 @@ export default function GridEvent({
   const pixelsLeft  = gridEvent.pixelsLeft[team]
   const diffIdx     = Math.min(gridEvent.id - 1, 2)
 
+  const redPct  = computeProgress(gridEvent, 'red')
+  const bluePct = computeProgress(gridEvent, 'blue')
+
   const [freshPainted, setFreshPainted] = useState<Set<string>>(new Set())
   const [buyOpen, setBuyOpen]           = useState(false)
 
   const winner = useMemo<Team | null>(() => {
     if (!isOver) return null
-    const r = computeProgress(gridEvent, 'red')
-    const b = computeProgress(gridEvent, 'blue')
-    return r >= b ? 'red' : 'blue'
-  }, [isOver, gridEvent])
+    return redPct >= bluePct ? 'red' : 'blue'
+  }, [isOver, redPct, bluePct])
 
   useEffect(() => {
     if (!winner || !onEventEnd) return
-    const t = setTimeout(() => onEventEnd(winner), 2000)
+    const t = setTimeout(() => onEventEnd(winner), 2500)
     return () => clearTimeout(t)
   }, [winner, onEventEnd])
 
   const handleCellClick = useCallback((row: number, col: number) => {
-    if (pixelsLeft <= 0) return
-    if (gridEvent.grid[row][col] === myValue) return
-    if (isOver) return
-
+    if (pixelsLeft <= 0 || gridEvent.grid[row][col] === myValue || isOver) return
     onPaintPixel(row, col)
     onToast?.()
-
     const key = `${row}-${col}`
     setFreshPainted(prev => new Set([...prev, key]))
-    setTimeout(() => {
-      setFreshPainted(prev => { const n = new Set(prev); n.delete(key); return n })
-    }, 250)
+    setTimeout(() => setFreshPainted(prev => { const n = new Set(prev); n.delete(key); return n }), 250)
   }, [pixelsLeft, gridEvent.grid, myValue, isOver, onPaintPixel, onToast])
 
   const rows = gridEvent.grid.length
   const cols = gridEvent.grid[0]?.length ?? 12
+
+  // Timer color: warn when low
+  const timerColor = secondsLeft <= 10 ? 'var(--red)' : 'var(--text-muted)'
 
   return (
     <div
       className="relative flex h-full flex-col overflow-hidden"
       style={{ background: 'var(--bg-panel)' }}
     >
-      {/* ── Header (hidden when parent provides tab bar) ─────────────── */}
+      {/* ── Header (optional) ───────────────────────────────────────── */}
       {!hideHeader && (
         <div
           className="flex shrink-0 items-center justify-between border-b px-3 py-2"
@@ -119,12 +116,11 @@ export default function GridEvent({
           <span className="text-xs font-bold uppercase tracking-widest" style={{ ...MONO, color }}>
             Grid Event #{gridEvent.id}
           </span>
-
           <motion.span
             className="text-xl font-bold tabular-nums"
-            style={{ ...MONO, color }}
-            animate={secondsLeft > 0 && secondsLeft <= 10 ? { scale: [1, 1.1, 1] } : { scale: 1 }}
-            transition={secondsLeft <= 10 ? { duration: 0.5, repeat: Infinity, repeatType: 'loop' } : { duration: 0 }}
+            style={{ ...MONO, color: timerColor }}
+            animate={secondsLeft <= 10 && secondsLeft > 0 ? { scale: [1, 1.1, 1] } : { scale: 1 }}
+            transition={secondsLeft <= 10 ? { duration: 0.5, repeat: Infinity } : { duration: 0 }}
           >
             {secondsLeft}s
           </motion.span>
@@ -173,7 +169,7 @@ export default function GridEvent({
                     style={{
                       width:        CELL_SIZE,
                       height:       CELL_SIZE,
-                      borderRadius: 2,
+                      borderRadius: 3,
                       background:   bg,
                       border,
                       cursor:       clickable ? 'pointer' : 'default',
@@ -201,7 +197,6 @@ export default function GridEvent({
         >
           {/* Target figure + difficulty */}
           <div className="flex items-start gap-2">
-            {/* Mini grid */}
             <div
               style={{
                 display:             'grid',
@@ -211,19 +206,12 @@ export default function GridEvent({
               }}
             >
               {gridEvent.targetShape.flat().map((cell, i) => (
-                <div
-                  key={i}
-                  style={{
-                    width:        4,
-                    height:       4,
-                    borderRadius: 1,
-                    background:   cell === 1 ? 'rgba(255,255,255,0.25)' : 'var(--bg-panel)',
-                  }}
-                />
+                <div key={i} style={{
+                  width: 4, height: 4, borderRadius: 1,
+                  background: cell === 1 ? 'rgba(255,255,255,0.25)' : 'var(--bg-panel)',
+                }} />
               ))}
             </div>
-
-            {/* Difficulty badge */}
             <span
               className="rounded px-1 py-0.5 text-[9px] font-bold uppercase tracking-widest"
               style={{
@@ -240,33 +228,68 @@ export default function GridEvent({
 
           <div className="h-px shrink-0" style={{ background: 'var(--border)' }} />
 
-          {/* Pixels remaining */}
+          {/* Round timer */}
+          <div className="flex items-center justify-between">
+            <span className="text-[9px] uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+              time left
+            </span>
+            <motion.span
+              className="text-base font-bold tabular-nums"
+              style={{ ...MONO, color: timerColor }}
+              animate={secondsLeft <= 10 && secondsLeft > 0 ? { scale: [1, 1.1, 1] } : { scale: 1 }}
+              transition={secondsLeft <= 10 ? { duration: 0.5, repeat: Infinity } : { duration: 0 }}
+            >
+              {secondsLeft}s
+            </motion.span>
+          </div>
+
+          <div className="h-px shrink-0" style={{ background: 'var(--border)' }} />
+
+          {/* Completion */}
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[9px] uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+              leading
+            </span>
+            {(['red', 'blue'] as Team[]).map(t => {
+              const pct = t === 'red' ? redPct : bluePct
+              return (
+                <div key={t} className="flex items-center gap-1">
+                  <span className="w-2.5 text-[9px] font-bold" style={{ color: tc(t) }}>
+                    {t[0].toUpperCase()}
+                  </span>
+                  <div className="relative h-[3px] flex-1 overflow-hidden rounded-full" style={{ background: 'var(--bg-panel)' }}>
+                    <motion.div
+                      className="absolute inset-y-0 left-0 rounded-full"
+                      style={{ background: tc(t) }}
+                      animate={{ width: `${pct}%` }}
+                      transition={{ duration: 0.3, ease: 'easeOut' }}
+                    />
+                  </div>
+                  <span className="w-6 text-right text-[9px]" style={{ ...MONO, color: tc(t) }}>
+                    {pct}%
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+
+          <div className="h-px shrink-0" style={{ background: 'var(--border)' }} />
+
+          {/* Pixels */}
           <div className="flex flex-col gap-1.5">
             <span className="text-[9px] uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
               your pixels
             </span>
-
             <div className="flex items-center gap-1.5">
-              {/* Dots */}
               <div className="flex gap-0.5">
                 {[0, 1, 2].map(i => (
-                  <div
-                    key={i}
-                    className="h-1.5 w-1.5 rounded-full"
-                    style={{
-                      background: i < Math.min(pixelsLeft, 3) ? color : 'var(--bg-panel)',
-                      border:     '1px solid var(--border-accent)',
-                    }}
-                  />
+                  <div key={i} className="h-1.5 w-1.5 rounded-full" style={{
+                    background: i < Math.min(pixelsLeft, 3) ? color : 'var(--bg-panel)',
+                    border: '1px solid var(--border-accent)',
+                  }} />
                 ))}
               </div>
-
-              {/* Count */}
-              <span className="text-sm font-bold" style={{ ...MONO, color }}>
-                {pixelsLeft}
-              </span>
-
-              {/* Buy button */}
+              <span className="text-sm font-bold" style={{ ...MONO, color }}>{pixelsLeft}</span>
               <button
                 onClick={() => setBuyOpen(o => !o)}
                 className="ml-auto rounded px-1.5 py-0.5 text-[9px] transition-colors"
@@ -275,15 +298,11 @@ export default function GridEvent({
                 buy
               </button>
             </div>
-
-            {/* Buy options */}
             <AnimatePresence>
               {buyOpen && (
                 <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.15 }}
+                  initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.15 }}
                   className="flex flex-col gap-1 overflow-hidden"
                 >
                   {BUY_OPTIONS.map(opt => (
@@ -291,20 +310,9 @@ export default function GridEvent({
                       key={opt.count}
                       onClick={() => { onBuyPixels(opt.count); setBuyOpen(false) }}
                       className="w-full rounded py-1 text-[9px] transition-all"
-                      style={{
-                        ...MONO,
-                        border:     '1px solid var(--border-accent)',
-                        background: 'var(--bg-panel)',
-                        color:      'var(--text-muted)',
-                      }}
-                      onMouseEnter={e => {
-                        ;(e.currentTarget as HTMLButtonElement).style.borderColor = color
-                        ;(e.currentTarget as HTMLButtonElement).style.color = color
-                      }}
-                      onMouseLeave={e => {
-                        ;(e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border-accent)'
-                        ;(e.currentTarget as HTMLButtonElement).style.color = 'var(--text-muted)'
-                      }}
+                      style={{ ...MONO, border: '1px solid var(--border-accent)', background: 'var(--bg-panel)', color: 'var(--text-muted)' }}
+                      onMouseEnter={e => { ;(e.currentTarget as HTMLButtonElement).style.borderColor = color; ;(e.currentTarget as HTMLButtonElement).style.color = color }}
+                      onMouseLeave={e => { ;(e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border-accent)'; ;(e.currentTarget as HTMLButtonElement).style.color = 'var(--text-muted)' }}
                     >
                       {opt.label}
                     </button>
@@ -316,29 +324,27 @@ export default function GridEvent({
         </div>
       </div>
 
-      {/* ── Result overlay ────────────────────────────────────────────── */}
+      {/* ── Round result overlay ──────────────────────────────────────── */}
       <AnimatePresence>
         {winner && (
           <motion.div
             key="result"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             transition={{ duration: 0.3 }}
             className="absolute inset-0 flex flex-col items-center justify-center gap-2"
-            style={{ background: 'rgba(10,10,15,0.82)', zIndex: 20 }}
+            style={{ background: 'rgba(10,10,15,0.88)', zIndex: 20 }}
           >
+            <span className="text-[10px] uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
+              round winner
+            </span>
             <span
               className="text-2xl font-black uppercase tracking-widest"
               style={{ ...MONO, color: tc(winner) }}
             >
-              {winner === 'red' ? 'AgentRed' : 'AgentBlue'}
-            </span>
-            <span className="text-xs font-bold" style={{ color: tc(winner) }}>
-              wins the grid event
+              {winner === 'red' ? 'Red' : 'Blue'}
             </span>
             <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
-              → {winner === 'red' ? 'AgentRed' : 'AgentBlue'} receives ×1.5 boost
+              ×1.5 boost applied · next figure loading…
             </span>
           </motion.div>
         )}

@@ -8,8 +8,10 @@ export interface ChatMessage {
   id:     string
   team:   Team
   emoji:  string
-  sentAt: number   // Date.now()
-  sender: string   // short wallet fragment, e.g. "0x4f..2a"
+  sentAt: number
+  sender: string   // wallet fragment or "system"
+  type?:  'user' | 'system'
+  msg?:   string   // used by system messages
 }
 
 export interface EmojiChatProps {
@@ -73,39 +75,50 @@ export default function EmojiChat({ team, messages, onEmojiSend, isVisible }: Em
             ) : (
               <div className="flex flex-col gap-1">
                 <AnimatePresence initial={false}>
-                  {visible.map(msg => (
-                    <motion.div
-                      key={msg.id}
-                      layout
-                      initial={{ opacity: 0, y: 6 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ duration: 0.15, ease: 'easeOut' }}
-                      className="flex items-center gap-2 px-1 py-0.5"
-                    >
-                      {/* Colored dot avatar */}
-                      <div
-                        className="h-2 w-2 shrink-0 rounded-full"
-                        style={{ background: teamColor(msg.team) }}
-                      />
+                  {visible.map(msg => {
+                    if (msg.type === 'system') {
+                      return (
+                        <motion.div
+                          key={msg.id}
+                          layout
+                          initial={{ opacity: 0, y: 4 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0 }}
+                          transition={{ duration: 0.2 }}
+                          className="my-1 rounded px-2 py-1 text-center text-[10px]"
+                          style={{
+                            ...MONO,
+                            color:      teamColor(msg.team),
+                            background: `${teamColor(msg.team)}10`,
+                            border:     `1px solid ${teamColor(msg.team)}30`,
+                          }}
+                        >
+                          {msg.msg}
+                        </motion.div>
+                      )
+                    }
 
-                      {/* Wallet ID */}
-                      <span className="text-[10px]" style={{ ...MONO, color: 'var(--text-dim)' }}>
-                        {msg.sender}
-                      </span>
-
-                      {/* Emoji */}
-                      <span className="text-sm leading-none">{msg.emoji}</span>
-
-                      {/* Timestamp */}
-                      <span
-                        className="ml-auto text-[10px]"
-                        style={{ ...MONO, color: 'var(--text-dim)', opacity: 0.4 }}
+                    return (
+                      <motion.div
+                        key={msg.id}
+                        layout
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.15, ease: 'easeOut' }}
+                        className="flex items-center gap-2 px-1 py-0.5"
                       >
-                        {formatTime(msg.sentAt)}
-                      </span>
-                    </motion.div>
-                  ))}
+                        <div className="h-2 w-2 shrink-0 rounded-full" style={{ background: teamColor(msg.team) }} />
+                        <span className="text-[10px]" style={{ ...MONO, color: 'var(--text-dim)' }}>
+                          {msg.sender}
+                        </span>
+                        <span className="text-sm leading-none">{msg.emoji}</span>
+                        <span className="ml-auto text-[10px]" style={{ ...MONO, color: 'var(--text-dim)', opacity: 0.4 }}>
+                          {formatTime(msg.sentAt)}
+                        </span>
+                      </motion.div>
+                    )
+                  })}
                 </AnimatePresence>
               </div>
             )}
