@@ -240,16 +240,17 @@ export default function GamePage() {
     setNotifications(prev => prev.filter(n => n.id !== id));
   }, []);
 
-  const handleEventEnd = useCallback((winner: Team) => {
-    engineRef.current!.applyGridEventResult(winner);
+  const handleEventEnd = useCallback((winner: Team | 'tie') => {
+    if (winner !== 'tie') engineRef.current!.applyGridEventResult(winner);
 
-    const winnerLabel = winner === 'red' ? 'Red' : 'Blue';
-    const roundMsg    = `${winnerLabel} wins the round · ×1.5 boost applied`;
+    const roundMsg = winner === 'tie'
+      ? 'Round draw · no boost applied'
+      : `${winner === 'red' ? 'Red' : 'Blue'} wins the round · ×1.5 boost applied`;
 
     // System message visible in Chat tab
     setChatMessages(prev => [
       ...prev,
-      { id: String(++chatSeq), team: winner, emoji: '', sentAt: Date.now(),
+      { id: String(++chatSeq), team: winner === 'tie' ? 'red' : winner, emoji: '', sentAt: Date.now(),
         sender: 'system', type: 'system' as const, msg: roundMsg },
     ].slice(-20));
 

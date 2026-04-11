@@ -12,7 +12,7 @@ export interface GridEventProps {
   team:         Team
   onPaintPixel: (row: number, col: number) => void
   onBuyPixels:  (count: number) => void
-  onEventEnd?:  (winner: Team) => void
+  onEventEnd?:  (winner: Team | 'tie') => void
   onToast?:     () => void
   hideHeader?:  boolean
 }
@@ -76,9 +76,10 @@ export default function GridEvent({
   const [freshPainted, setFreshPainted] = useState<Set<string>>(new Set())
   const [buyOpen, setBuyOpen]           = useState(false)
 
-  const winner = useMemo<Team | null>(() => {
+  const winner = useMemo<Team | 'tie' | null>(() => {
     if (!isOver) return null
-    return redPct >= bluePct ? 'red' : 'blue'
+    if (redPct === bluePct) return 'tie'
+    return redPct > bluePct ? 'red' : 'blue'
   }, [isOver, redPct, bluePct])
 
   useEffect(() => {
@@ -335,16 +336,16 @@ export default function GridEvent({
             style={{ background: 'rgba(10,10,15,0.88)', zIndex: 20 }}
           >
             <span className="text-[10px] uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
-              round winner
+              {winner === 'tie' ? 'round result' : 'round winner'}
             </span>
             <span
               className="text-2xl font-black uppercase tracking-widest"
-              style={{ ...MONO, color: tc(winner) }}
+              style={{ ...MONO, color: winner === 'tie' ? 'var(--text-muted)' : tc(winner as Team) }}
             >
-              {winner === 'red' ? 'Red' : 'Blue'}
+              {winner === 'tie' ? 'Draw' : winner === 'red' ? 'Red' : 'Blue'}
             </span>
             <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
-              ×1.5 boost applied · next figure loading…
+              {winner === 'tie' ? 'no boost · next figure loading…' : '×1.5 boost applied · next figure loading…'}
             </span>
           </motion.div>
         )}
