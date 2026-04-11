@@ -159,5 +159,5 @@ export default function EmojiChat({ team, messages, onEmojiSend, isVisible }: Em
         </motion.div>
       )}
     </AnimatePresence>
-  )
+  );
 }

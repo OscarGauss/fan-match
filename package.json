@@ -7,12 +7,13 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "npm run dev --workspace=apps/web",
-    "build": "npm run build --workspace=apps/web",
-    "db:generate": "npm run db:generate --workspace=apps/web",
-    "db:migrate": "npm run db:migrate --workspace=apps/web",
-    "db:push": "npm run db:push --workspace=apps/web",
-    "db:studio": "npm run db:studio --workspace=apps/web"
+    "dev:chat-api": "npm run dev --workspace=apps/chat-api",
+    "build:chat-api": "npm run build --workspace=apps/chat-api",
+    "dev:fan-forge": "npm run dev --workspace=apps/fan-forge",
+    "db:generate": "f() { npm run db:generate --workspace=apps/${1:-web}; }; f",
+    "db:migrate": "f() { npm run db:migrate --workspace=apps/${1:-web}; }; f",
+    "db:push": "f() { npm run db:push --workspace=apps/${1:-web}; }; f",
+    "db:studio": "f() { npm run db:studio --workspace=apps/${1:-web}; }; f"
   },
   "devDependencies": {
     "typescript": "^5"
