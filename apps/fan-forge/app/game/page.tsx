@@ -13,7 +13,8 @@ import type { DecisionLogEntry, MatchState, Team } from '@/lib/types'
 import type { AgentView } from '@/components/game/AgentPanel'
 import type { ChatMessage } from '@/components/game/EmojiChat'
 import type { FeedEntry } from '@/components/game/MatchCanvas'
-import { MATCH_DURATION_MS } from '@/lib/constants'
+import { MATCH_DURATION_MS, GRID_ROWS, GRID_COLS, FREE_PIXELS_PER_EVENT, GRID_TARGETS } from '@/lib/constants'
+import type { GridEventState } from '@/lib/types'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -23,7 +24,19 @@ function formatTimer(elapsedMs: number) {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 }
 
-let chatSeq = 0
+let chatSeq  = 0
+let notifSeq = 0
+
+// Simulated wallet fragment for this session, e.g. "0x4f..2a"
+function makeWalletId() {
+  const hex = () => Math.floor(Math.random() * 0xff).toString(16).padStart(2, '0')
+  return `0x${hex()}..${hex()}`
+}
+
+const TX_GREEN = '#00ff88'
+const MONO_FONT: React.CSSProperties = { fontFamily: 'var(--font-space-mono)' }
+
+interface Notification { id: string }
 
 // ── Team toggle (header) ──────────────────────────────────────────────────────
 
@@ -65,20 +78,33 @@ export default function GamePage() {
   const engineRef    = useRef<GameEngine | null>(null)
   const startTimeRef = useRef<number | null>(null)
   const lastSimRef   = useRef<number>(0)
+  const myWalletId   = useRef<string>(makeWalletId())
 
   if (!engineRef.current) {
     engineRef.current = new GameEngine('GAGENTR3DXYZ', 'GAGENTB7WXYZ')
   }
 
   // ── State ─────────────────────────────────────────────────────────────────
-  const [matchState,   setMatchState]   = useState<MatchState>(() => engineRef.current!.getState())
-  const [decisionLog,  setDecisionLog]  = useState<DecisionLogEntry[]>([])
-  const [feedEntries,  setFeedEntries]  = useState<FeedEntry[]>([])
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
-  const [userTeam,     setUserTeam]     = useState<Team>('red')
-  const [agentView,    setAgentView]    = useState<AgentView>('agents')
-  const [stakedAmount, setStakedAmount] = useState<number | null>(null)
-  const [stakedTeam,   setStakedTeam]   = useState<Team | null>(null)
+  const [matchState,    setMatchState]    = useState<MatchState>(() => engineRef.current!.getState())
+  const [decisionLog,   setDecisionLog]   = useState<DecisionLogEntry[]>([])
+  const [feedEntries,   setFeedEntries]   = useState<FeedEntry[]>([])
+  const [chatMessages,  setChatMessages]  = useState<ChatMessage[]>([])
+  const [userTeam,      setUserTeam]      = useState<Team>('red')
+  const [agentView,     setAgentView]     = useState<AgentView>('agents')
+  const [stakedAmount,  setStakedAmount]  = useState<number | null>(null)
+  const [stakedTeam,    setStakedTeam]    = useState<Team | null>(null)
+  const [notifications, setNotifications] = useState<Notification[]>([])
+  const [bottomView,    setBottomView]    = useState<'chat' | 'grid'>('chat')
+
+  // Persistent grid — always available, not tied to match timed events
+  const [persistentGrid, setPersistentGrid] = useState<GridEventState>(() => ({
+    id:          1,
+    grid:        Array.from({ length: GRID_ROWS }, () => Array(GRID_COLS).fill(0)),
+    targetShape: GRID_TARGETS[0] as number[][],
+    startMs:     0,
+    endMs:       Number.MAX_SAFE_INTEGER,
+    pixelsLeft:  { red: FREE_PIXELS_PER_EVENT, blue: FREE_PIXELS_PER_EVENT },
+  }))
 
   // ── Game loop — 100 ms tick ───────────────────────────────────────────────
   useEffect(() => {
@@ -152,36 +178,25 @@ export default function GamePage() {
   }, [])
 
   const handlePaintPixel = useCallback((row: number, col: number) => {
-    setMatchState(prev => {
-      const ge = prev.currentGridEvent
-      if (!ge || ge.pixelsLeft[userTeam] <= 0) return prev
+    setPersistentGrid(prev => {
+      if (prev.pixelsLeft[userTeam] <= 0) return prev
       const cellVal = userTeam === 'red' ? 1 : 2
-      if (ge.grid[row][col] === cellVal) return prev
+      if (prev.grid[row][col] === cellVal) return prev
       return {
         ...prev,
-        currentGridEvent: {
-          ...ge,
-          grid: ge.grid.map((r, ri) =>
-            r.map((cell, ci) => ri === row && ci === col ? cellVal : cell)
-          ),
-          pixelsLeft: { ...ge.pixelsLeft, [userTeam]: ge.pixelsLeft[userTeam] - 1 },
-        },
+        grid: prev.grid.map((r, ri) =>
+          r.map((cell, ci) => ri === row && ci === col ? cellVal : cell)
+        ),
+        pixelsLeft: { ...prev.pixelsLeft, [userTeam]: prev.pixelsLeft[userTeam] - 1 },
       }
     })
   }, [userTeam])
 
   const handleBuyPixels = useCallback((count: number) => {
-    setMatchState(prev => {
-      const ge = prev.currentGridEvent
-      if (!ge) return prev
-      return {
-        ...prev,
-        currentGridEvent: {
-          ...ge,
-          pixelsLeft: { ...ge.pixelsLeft, [userTeam]: ge.pixelsLeft[userTeam] + count },
-        },
-      }
-    })
+    setPersistentGrid(prev => ({
+      ...prev,
+      pixelsLeft: { ...prev.pixelsLeft, [userTeam]: prev.pixelsLeft[userTeam] + count },
+    }))
   }, [userTeam])
 
   const handleEventEnd = useCallback((winner: Team) => {
@@ -191,13 +206,23 @@ export default function GamePage() {
   const handleEmojiSend = useCallback((emoji: string) => {
     setChatMessages(prev => [
       ...prev,
-      { id: String(++chatSeq), team: userTeam, emoji, sentAt: Date.now() },
+      { id: String(++chatSeq), team: userTeam, emoji, sentAt: Date.now(), sender: myWalletId.current },
     ].slice(-20))
   }, [userTeam])
 
   const handleStake = useCallback((team: Team, amount: number) => {
     setStakedTeam(prev => prev ?? team)
     setStakedAmount(prev => (prev ?? 0) + amount)
+  }, [])
+
+  const handleToast = useCallback(() => {
+    const id = String(++notifSeq)
+    setNotifications(prev => [...prev, { id }])
+    setTimeout(() => setNotifications(prev => prev.filter(n => n.id !== id)), 3000)
+  }, [])
+
+  const dismissNotif = useCallback((id: string) => {
+    setNotifications(prev => prev.filter(n => n.id !== id))
   }, [])
 
   // ── Derived ───────────────────────────────────────────────────────────────
@@ -256,33 +281,73 @@ export default function GamePage() {
             <MatchCanvas matchState={matchState} onGoal={handleGoal} onFeedEntry={handleFeedEntry} />
           </div>
 
-          {/* Chat / Grid event — takes all remaining space */}
-          <div className="relative shrink-0 overflow-hidden" style={{ height: 240 }}>
-            <AnimatePresence mode="wait">
-              {isGrid && matchState.currentGridEvent ? (
-                <motion.div key="grid-event" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="absolute inset-0">
-                  <GridEvent
-                    gridEvent={matchState.currentGridEvent}
-                    elapsedMs={matchState.elapsedMs}
-                    team={userTeam}
-                    onPaintPixel={handlePaintPixel}
-                    onBuyPixels={handleBuyPixels}
-                    onEventEnd={handleEventEnd}
-                  />
-                </motion.div>
-              ) : (
-                <motion.div key="emoji-chat" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="absolute inset-0">
-                  <EmojiChat
-                    team={userTeam}
-                    messages={chatMessages}
-                    onEmojiSend={handleEmojiSend}
-                    isVisible
-                  />
-                </motion.div>
-              )}
-            </AnimatePresence>
+          {/* Bottom panel: Chat / Grid toggle */}
+          <div className="flex shrink-0 flex-col overflow-hidden" style={{ height: 240 }}>
+            {/* Tab bar */}
+            <div
+              className="flex shrink-0 border-b"
+              style={{ borderColor: 'var(--border)', background: 'var(--bg-panel)' }}
+            >
+              {(['chat', 'grid'] as const).map(v => {
+                const active = bottomView === v
+                const accentColor = userTeam === 'red' ? 'var(--red)' : 'var(--blue)'
+                return (
+                  <button
+                    key={v}
+                    onClick={() => setBottomView(v)}
+                    className="relative px-4 py-2 text-[10px] uppercase tracking-widest transition-colors"
+                    style={{
+                      fontFamily: 'var(--font-space-mono)',
+                      background: 'transparent',
+                      border:     'none',
+                      cursor:     'pointer',
+                      color:      active ? 'var(--text-primary)' : 'var(--text-muted)',
+                    }}
+                  >
+                    {v === 'chat' ? 'Chat' : 'Grid'}
+                    {active && (
+                      <motion.div
+                        layoutId="bottom-tab-indicator"
+                        className="absolute bottom-0 left-0 right-0 h-[2px]"
+                        style={{ background: accentColor }}
+                        transition={{ duration: 0.2 }}
+                      />
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* Content */}
+            <div className="relative flex-1 overflow-hidden">
+              <AnimatePresence mode="wait">
+                {bottomView === 'chat' ? (
+                  <motion.div key="chat" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }} transition={{ duration: 0.15 }} className="absolute inset-0">
+                    <EmojiChat
+                      team={userTeam}
+                      messages={chatMessages.filter(m => m.team === userTeam)}
+                      onEmojiSend={handleEmojiSend}
+                      isVisible
+                    />
+                  </motion.div>
+                ) : (
+                  <motion.div key="grid" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }} transition={{ duration: 0.15 }} className="absolute inset-0">
+                    <GridEvent
+                      gridEvent={persistentGrid}
+                      elapsedMs={matchState.elapsedMs}
+                      team={userTeam}
+                      onPaintPixel={handlePaintPixel}
+                      onBuyPixels={handleBuyPixels}
+                      onEventEnd={handleEventEnd}
+                      onToast={handleToast}
+                      hideHeader
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
         </div>
 
@@ -322,6 +387,54 @@ export default function GamePage() {
         </div>
 
       </div>
+
+      {/* ── Global notifications (top-right) ────────────────────────── */}
+      <div className="pointer-events-none fixed right-4 top-4 z-50 flex flex-col items-end gap-2">
+        <AnimatePresence>
+          {notifications.map((notif, i) => (
+            <motion.div
+              key={notif.id}
+              initial={{ opacity: 0, x: 24, scale: 0.95 }}
+              animate={{ opacity: 1, x: 0, scale: 1 }}
+              exit={{ opacity: 0, x: 24, scale: 0.95 }}
+              transition={{ duration: 0.18, ease: 'easeOut' }}
+              className="pointer-events-auto flex items-center gap-2 rounded border px-3 py-2 shadow-lg"
+              style={{
+                ...MONO_FONT,
+                fontSize:        10,
+                background:      'var(--bg-panel)',
+                borderColor:     TX_GREEN,
+                color:           'var(--text-muted)',
+                transformOrigin: 'right center',
+                // subtle scale-down for items further back in the stack
+                transform:       `scale(${1 - (notifications.length - 1 - i) * 0.025})`,
+              }}
+            >
+              <span style={{ color: TX_GREEN }}>✓</span>
+              <span>
+                tx confirmed ·{' '}
+                <span style={{ color: TX_GREEN }}>0.01 USDC</span>
+                {' '}· testnet
+              </span>
+              <button
+                onClick={() => dismissNotif(notif.id)}
+                className="ml-2 flex h-4 w-4 items-center justify-center rounded-full text-[11px] leading-none transition-colors"
+                style={{
+                  background: 'rgba(255,255,255,0.06)',
+                  color:      'var(--text-dim)',
+                  border:     '1px solid var(--border)',
+                  cursor:     'pointer',
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = TX_GREEN }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-dim)' }}
+              >
+                ×
+              </button>
+            </motion.div>
+          ))}
+        </AnimatePresence>
+      </div>
+
     </div>
   )
 }
