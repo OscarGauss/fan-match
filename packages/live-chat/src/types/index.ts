@@ -89,4 +89,5 @@ export type AblyEvent =
   | { name: "gift.sent"; data: GiftEvent }
   | { name: "reaction.sent"; data: ReactionEvent }
   | { name: "user.banned"; data: { userId: string } }
-  | { name: "room.updated"; data: { slowModeSeconds: number } };
+  | { name: "room.updated"; data: { slowModeSeconds: number } }
+  | { name: "room.config_updated"; data: { updated: "gifts" | "reactions" } };

@@ -46,7 +46,7 @@ export function ChatWindow({
       ref={containerRef}
       onScroll={handleScroll}
       className="overflow-y-auto flex flex-col gap-0.5 py-2"
-      style={{ height }}
+      style={{ height: '100%' }}
     >
       {messages.length === 0 && (
         <div className="flex items-center justify-center h-full">

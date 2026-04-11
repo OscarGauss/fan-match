@@ -117,23 +117,39 @@ export function LiveChat({
 
       {/* Input area */}
       {!isBanned && (
-        <div className="flex items-center gap-1 pr-2">
-          <div className="flex-1">
-            <ChatInput
-              onSend={handleSend}
+        <div className="flex flex-col border-t border-gray-100">
+          {/* Reaction quick-access bar */}
+          {reactions.length > 0 && (
+            <div className="flex items-center gap-0.5 px-3 pt-1.5 pb-0.5 overflow-x-auto scrollbar-none">
+              {reactions.map((r) => (
+                <button
+                  key={r.slug}
+                  onClick={() => sendReaction(r.slug)}
+                  title={r.label}
+                  className="flex-shrink-0 w-8 h-8 rounded-full hover:bg-gray-100 active:scale-90 flex items-center justify-center text-lg transition-all"
+                >
+                  {r.emoji}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="flex items-center gap-1 pr-2">
+            <div className="flex-1">
+              <ChatInput
+                onSend={handleSend}
+                disabled={isBanned}
+                canSend={canSend}
+                secondsLeft={secondsLeft}
+                onSlowModeSent={startCooldown}
+              />
+            </div>
+            <GiftPanel
+              gifts={gifts}
+              onSendGift={handleSendGift}
               disabled={isBanned}
-              canSend={canSend}
-              secondsLeft={secondsLeft}
-              onSlowModeSent={startCooldown}
             />
           </div>
-          <GiftPanel
-            gifts={gifts}
-            reactions={reactions}
-            onSendGift={handleSendGift}
-            onSendReaction={sendReaction}
-            disabled={isBanned}
-          />
         </div>
       )}
     </div>

@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { publishToRoom } from "@/lib/ably-server";
 
 // GET /api/rooms/[roomId]/reactions/config — full reaction config for the owner panel
 export async function GET(
@@ -86,6 +87,8 @@ export async function PATCH(
       })
     )
   );
+
+  await publishToRoom(roomId, "room.config_updated", { updated: "reactions" });
 
   return Response.json({ ok: true });
 }

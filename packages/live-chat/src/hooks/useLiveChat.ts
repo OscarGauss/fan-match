@@ -77,6 +77,20 @@ export function useLiveChat({
       setSlowModeSeconds(sms);
     });
 
+    channel.subscribe("room.config_updated", (msg) => {
+      const { updated } = msg.data as { updated: "gifts" | "reactions" };
+      if (updated === "gifts" || updated === "reactions") {
+        const path = updated === "gifts" ? "gifts" : "reactions";
+        fetch(`${apiBaseUrl}/rooms/${roomId}/${path}`)
+          .then((r) => r.json())
+          .then((data) => {
+            if (updated === "gifts") setGifts(data);
+            else setReactions(data);
+          })
+          .catch(console.error);
+      }
+    });
+
     return () => {
       channel.unsubscribe();
       ably.close();

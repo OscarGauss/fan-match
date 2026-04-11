@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { publishToRoom } from "@/lib/ably-server";
 
 // GET /api/rooms/[roomId]/gifts/config — full gift config for the owner panel
 // Returns ALL gift types for this room (enabled and disabled), with price override if set.
@@ -105,6 +106,8 @@ export async function PATCH(
       })
     )
   );
+
+  await publishToRoom(roomId, "room.config_updated", { updated: "gifts" });
 
   return Response.json({ ok: true });
 }
