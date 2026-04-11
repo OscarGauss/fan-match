@@ -22,11 +22,13 @@ export function LiveChat({
   const {
     messages,
     gifts,
+    reactions,
     slowModeSeconds,
     connected,
     bannedUserId,
     sendMessage,
     sendGift,
+    sendReaction,
     deleteMessage,
     banUser,
   } = useLiveChat({ roomId, walletAddress, apiBaseUrl, role });
@@ -127,7 +129,9 @@ export function LiveChat({
           </div>
           <GiftPanel
             gifts={gifts}
+            reactions={reactions}
             onSendGift={handleSendGift}
+            onSendReaction={sendReaction}
             disabled={isBanned}
           />
         </div>

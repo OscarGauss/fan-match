@@ -35,8 +35,10 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: "User not found. Call /api/auth/me first." }, { status: 404 });
   }
 
-  // Get all gift types to populate room gift config
-  const giftTypes = await prisma.giftType.findMany();
+  const [giftTypes, reactionTypes] = await Promise.all([
+    prisma.giftType.findMany(),
+    prisma.reactionType.findMany(),
+  ]);
 
   const room = await prisma.room.create({
     data: {
@@ -48,6 +50,9 @@ export async function POST(request: NextRequest) {
       },
       giftConfig: {
         create: giftTypes.map((g) => ({ giftSlug: g.slug, isEnabled: true })),
+      },
+      reactionConfig: {
+        create: reactionTypes.map((r) => ({ reactionSlug: r.slug, isEnabled: true })),
       },
     },
     include: {

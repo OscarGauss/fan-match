@@ -62,6 +62,16 @@ export type RoomMember = Prisma.RoomMemberModel
  */
 export type Message = Prisma.MessageModel
 /**
+ * Model ReactionType
+ * 
+ */
+export type ReactionType = Prisma.ReactionTypeModel
+/**
+ * Model RoomReactionConfig
+ * 
+ */
+export type RoomReactionConfig = Prisma.RoomReactionConfigModel
+/**
  * Model GiftType
  * 
  */

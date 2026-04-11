@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import Ably from "ably";
-import type { ChatMessage, GiftDefinition, GiftEvent, RoomRole } from "../types";
+import type { ChatMessage, GiftDefinition, GiftEvent, ReactionDefinition, ReactionEvent, RoomRole } from "../types";
 
 interface UseLiveChatOptions {
   roomId: string;
@@ -25,6 +25,7 @@ export function useLiveChat({
 }: UseLiveChatOptions) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [gifts, setGifts] = useState<GiftDefinition[]>([]);
+  const [reactions, setReactions] = useState<ReactionDefinition[]>([]);
   const [slowModeSeconds, setSlowModeSeconds] = useState(0);
   const [connected, setConnected] = useState(false);
   const [bannedUserId, setBannedUserId] = useState<string | null>(null);
@@ -103,6 +104,16 @@ export function useLiveChat({
       .catch(console.error);
   }, [roomId, apiBaseUrl]);
 
+  // ----- Load reaction config -----
+  useEffect(() => {
+    if (!roomId) return;
+
+    fetch(`${apiBaseUrl}/rooms/${roomId}/reactions`)
+      .then((r) => r.json())
+      .then((data: ReactionDefinition[]) => setReactions(data))
+      .catch(console.error);
+  }, [roomId, apiBaseUrl]);
+
   // ----- Load room slow mode -----
   useEffect(() => {
     if (!roomId) return;
@@ -158,16 +169,33 @@ export function useLiveChat({
     [apiBaseUrl, roomId, walletAddress]
   );
 
+  const sendReaction = useCallback(
+    async (reactionSlug: string): Promise<void> => {
+      await fetch(`${apiBaseUrl}/rooms/${roomId}/reactions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ walletAddress, reactionSlug }),
+      });
+    },
+    [apiBaseUrl, roomId, walletAddress]
+  );
+
   const subscribeToGifts = useCallback(
     (handler: (gift: GiftEvent) => void) => {
       const channel = channelRef.current;
       if (!channel) return () => {};
-
-      channel.subscribe("gift.sent", (msg) => {
-        handler(msg.data as GiftEvent);
-      });
-
+      channel.subscribe("gift.sent", (msg) => handler(msg.data as GiftEvent));
       return () => channel.unsubscribe("gift.sent");
+    },
+    []
+  );
+
+  const subscribeToReactions = useCallback(
+    (handler: (reaction: ReactionEvent) => void) => {
+      const channel = channelRef.current;
+      if (!channel) return () => {};
+      channel.subscribe("reaction.sent", (msg) => handler(msg.data as ReactionEvent));
+      return () => channel.unsubscribe("reaction.sent");
     },
     []
   );
@@ -175,13 +203,16 @@ export function useLiveChat({
   return {
     messages,
     gifts,
+    reactions,
     slowModeSeconds,
     connected,
     bannedUserId,
     sendMessage,
     sendGift,
+    sendReaction,
     deleteMessage,
     banUser,
     subscribeToGifts,
+    subscribeToReactions,
   };
 }

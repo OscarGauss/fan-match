@@ -1,27 +1,79 @@
 import { useState, useCallback } from "react";
-import type { GiftEvent } from "../types";
+import type { GiftEvent, ReactionEvent } from "../types";
 
-interface ActiveGift extends GiftEvent {
-  key: string; // unique render key
+export interface OverlayItem {
+  key: string;
+  type: "gift" | "reaction";
+  emoji: string;
+  label: string;
+  /** Only meaningful for gifts */
+  quantity: number;
+  user: GiftEvent["user"];
+  /** Show sender label card — false for burst duplicates */
+  showLabel: boolean;
 }
 
-const GIFT_DISPLAY_MS = 6500;
+const GIFT_DISPLAY_MS    = 6500;
+const REACTION_DISPLAY_MS = 4000;
+/** Max simultaneous burst animations for a single gift event */
+const MAX_BURST = 5;
+/** Delay between each burst animation */
+const BURST_INTERVAL_MS = 180;
 
-/**
- * Manages a queue of active gift animations.
- * Each gift is added, then automatically removed after GIFT_DISPLAY_MS.
- */
 export function useGiftOverlay() {
-  const [activeGifts, setActiveGifts] = useState<ActiveGift[]>([]);
+  const [items, setItems] = useState<OverlayItem[]>([]);
 
-  const addGift = useCallback((gift: GiftEvent) => {
-    const key = `${gift.id}-${Date.now()}`;
-    setActiveGifts((prev) => [...prev, { ...gift, key }]);
-
-    setTimeout(() => {
-      setActiveGifts((prev) => prev.filter((g) => g.key !== key));
-    }, GIFT_DISPLAY_MS);
+  const removeItem = useCallback((key: string) => {
+    setItems((prev) => prev.filter((i) => i.key !== key));
   }, []);
 
-  return { activeGifts, addGift };
+  const addGift = useCallback(
+    (gift: GiftEvent) => {
+      const burst = Math.min(gift.quantity, MAX_BURST);
+
+      for (let i = 0; i < burst; i++) {
+        const key = `gift-${gift.id}-${i}-${Date.now()}`;
+        const delay = i * BURST_INTERVAL_MS;
+
+        setTimeout(() => {
+          setItems((prev) => [
+            ...prev,
+            {
+              key,
+              type: "gift",
+              emoji: gift.emoji,
+              label: gift.label,
+              quantity: gift.quantity,
+              user: gift.user,
+              showLabel: i === 0, // only first burst shows the label card
+            },
+          ]);
+          setTimeout(() => removeItem(key), GIFT_DISPLAY_MS);
+        }, delay);
+      }
+    },
+    [removeItem]
+  );
+
+  const addReaction = useCallback(
+    (reaction: ReactionEvent) => {
+      const key = `reaction-${reaction.reactionSlug}-${Date.now()}`;
+      setItems((prev) => [
+        ...prev,
+        {
+          key,
+          type: "reaction",
+          emoji: reaction.emoji,
+          label: reaction.label,
+          quantity: 1,
+          user: reaction.user,
+          showLabel: true,
+        },
+      ]);
+      setTimeout(() => removeItem(key), REACTION_DISPLAY_MS);
+    },
+    [removeItem]
+  );
+
+  return { items, addGift, addReaction };
 }

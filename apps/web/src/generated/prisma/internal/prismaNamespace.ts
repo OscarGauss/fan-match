@@ -388,6 +388,8 @@ export const ModelName = {
   Room: 'Room',
   RoomMember: 'RoomMember',
   Message: 'Message',
+  ReactionType: 'ReactionType',
+  RoomReactionConfig: 'RoomReactionConfig',
   GiftType: 'GiftType',
   RoomGiftConfig: 'RoomGiftConfig',
   GiftEvent: 'GiftEvent',
@@ -407,7 +409,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "room" | "roomMember" | "message" | "giftType" | "roomGiftConfig" | "giftEvent" | "ban"
+    modelProps: "user" | "room" | "roomMember" | "message" | "reactionType" | "roomReactionConfig" | "giftType" | "roomGiftConfig" | "giftEvent" | "ban"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -704,6 +706,154 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.MessageCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.MessageCountAggregateOutputType> | number
+        }
+      }
+    }
+    ReactionType: {
+      payload: Prisma.$ReactionTypePayload<ExtArgs>
+      fields: Prisma.ReactionTypeFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.ReactionTypeFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ReactionTypePayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.ReactionTypeFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ReactionTypePayload>
+        }
+        findFirst: {
+          args: Prisma.ReactionTypeFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ReactionTypePayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.ReactionTypeFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ReactionTypePayload>
+        }
+        findMany: {
+          args: Prisma.ReactionTypeFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ReactionTypePayload>[]
+        }
+        create: {
+          args: Prisma.ReactionTypeCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ReactionTypePayload>
+        }
+        createMany: {
+          args: Prisma.ReactionTypeCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.ReactionTypeCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ReactionTypePayload>[]
+        }
+        delete: {
+          args: Prisma.ReactionTypeDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ReactionTypePayload>
+        }
+        update: {
+          args: Prisma.ReactionTypeUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ReactionTypePayload>
+        }
+        deleteMany: {
+          args: Prisma.ReactionTypeDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.ReactionTypeUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.ReactionTypeUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ReactionTypePayload>[]
+        }
+        upsert: {
+          args: Prisma.ReactionTypeUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ReactionTypePayload>
+        }
+        aggregate: {
+          args: Prisma.ReactionTypeAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateReactionType>
+        }
+        groupBy: {
+          args: Prisma.ReactionTypeGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ReactionTypeGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.ReactionTypeCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ReactionTypeCountAggregateOutputType> | number
+        }
+      }
+    }
+    RoomReactionConfig: {
+      payload: Prisma.$RoomReactionConfigPayload<ExtArgs>
+      fields: Prisma.RoomReactionConfigFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.RoomReactionConfigFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RoomReactionConfigPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.RoomReactionConfigFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RoomReactionConfigPayload>
+        }
+        findFirst: {
+          args: Prisma.RoomReactionConfigFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RoomReactionConfigPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.RoomReactionConfigFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RoomReactionConfigPayload>
+        }
+        findMany: {
+          args: Prisma.RoomReactionConfigFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RoomReactionConfigPayload>[]
+        }
+        create: {
+          args: Prisma.RoomReactionConfigCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RoomReactionConfigPayload>
+        }
+        createMany: {
+          args: Prisma.RoomReactionConfigCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.RoomReactionConfigCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RoomReactionConfigPayload>[]
+        }
+        delete: {
+          args: Prisma.RoomReactionConfigDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RoomReactionConfigPayload>
+        }
+        update: {
+          args: Prisma.RoomReactionConfigUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RoomReactionConfigPayload>
+        }
+        deleteMany: {
+          args: Prisma.RoomReactionConfigDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.RoomReactionConfigUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.RoomReactionConfigUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RoomReactionConfigPayload>[]
+        }
+        upsert: {
+          args: Prisma.RoomReactionConfigUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RoomReactionConfigPayload>
+        }
+        aggregate: {
+          args: Prisma.RoomReactionConfigAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateRoomReactionConfig>
+        }
+        groupBy: {
+          args: Prisma.RoomReactionConfigGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.RoomReactionConfigGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.RoomReactionConfigCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.RoomReactionConfigCountAggregateOutputType> | number
         }
       }
     }
@@ -1092,6 +1242,26 @@ export const MessageScalarFieldEnum = {
 export type MessageScalarFieldEnum = (typeof MessageScalarFieldEnum)[keyof typeof MessageScalarFieldEnum]
 
 
+export const ReactionTypeScalarFieldEnum = {
+  slug: 'slug',
+  emoji: 'emoji',
+  label: 'label',
+  sortOrder: 'sortOrder'
+} as const
+
+export type ReactionTypeScalarFieldEnum = (typeof ReactionTypeScalarFieldEnum)[keyof typeof ReactionTypeScalarFieldEnum]
+
+
+export const RoomReactionConfigScalarFieldEnum = {
+  id: 'id',
+  isEnabled: 'isEnabled',
+  roomId: 'roomId',
+  reactionSlug: 'reactionSlug'
+} as const
+
+export type RoomReactionConfigScalarFieldEnum = (typeof RoomReactionConfigScalarFieldEnum)[keyof typeof RoomReactionConfigScalarFieldEnum]
+
+
 export const GiftTypeScalarFieldEnum = {
   slug: 'slug',
   emoji: 'emoji',
@@ -1343,6 +1513,8 @@ export type GlobalOmitConfig = {
   room?: Prisma.RoomOmit
   roomMember?: Prisma.RoomMemberOmit
   message?: Prisma.MessageOmit
+  reactionType?: Prisma.ReactionTypeOmit
+  roomReactionConfig?: Prisma.RoomReactionConfigOmit
   giftType?: Prisma.GiftTypeOmit
   roomGiftConfig?: Prisma.RoomGiftConfigOmit
   giftEvent?: Prisma.GiftEventOmit

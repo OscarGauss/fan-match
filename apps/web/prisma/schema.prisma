@@ -38,11 +38,12 @@ model Room {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  members    RoomMember[]
-  messages   Message[]
-  giftEvents GiftEvent[]
-  giftConfig RoomGiftConfig[]
-  bans       Ban[]
+  members        RoomMember[]
+  messages       Message[]
+  giftEvents     GiftEvent[]
+  giftConfig     RoomGiftConfig[]
+  reactionConfig RoomReactionConfig[]
+  bans           Ban[]
 }
 
 // ---------------------------------------------------------------------------
@@ -82,6 +83,33 @@ model Message {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([roomId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Reaction catalogue — global, seeded on deploy (free, real-time only)
+// ---------------------------------------------------------------------------
+model ReactionType {
+  slug      String @id
+  emoji     String
+  label     String
+  sortOrder Int    @default(0)
+
+  roomConfigs RoomReactionConfig[]
+}
+
+// ---------------------------------------------------------------------------
+// Per-room reaction configuration — which reactions are enabled
+// ---------------------------------------------------------------------------
+model RoomReactionConfig {
+  id        String  @id @default(cuid())
+  isEnabled Boolean @default(true)
+
+  roomId       String
+  reactionSlug String
+  room         Room         @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  reaction     ReactionType @relation(fields: [reactionSlug], references: [slug], onDelete: Cascade)
+
+  @@unique([roomId, reactionSlug])
 }
 
 // ---------------------------------------------------------------------------

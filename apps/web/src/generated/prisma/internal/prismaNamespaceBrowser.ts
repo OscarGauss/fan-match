@@ -55,6 +55,8 @@ export const ModelName = {
   Room: 'Room',
   RoomMember: 'RoomMember',
   Message: 'Message',
+  ReactionType: 'ReactionType',
+  RoomReactionConfig: 'RoomReactionConfig',
   GiftType: 'GiftType',
   RoomGiftConfig: 'RoomGiftConfig',
   GiftEvent: 'GiftEvent',
@@ -125,6 +127,26 @@ export const MessageScalarFieldEnum = {
 } as const
 
 export type MessageScalarFieldEnum = (typeof MessageScalarFieldEnum)[keyof typeof MessageScalarFieldEnum]
+
+
+export const ReactionTypeScalarFieldEnum = {
+  slug: 'slug',
+  emoji: 'emoji',
+  label: 'label',
+  sortOrder: 'sortOrder'
+} as const
+
+export type ReactionTypeScalarFieldEnum = (typeof ReactionTypeScalarFieldEnum)[keyof typeof ReactionTypeScalarFieldEnum]
+
+
+export const RoomReactionConfigScalarFieldEnum = {
+  id: 'id',
+  isEnabled: 'isEnabled',
+  roomId: 'roomId',
+  reactionSlug: 'reactionSlug'
+} as const
+
+export type RoomReactionConfigScalarFieldEnum = (typeof RoomReactionConfigScalarFieldEnum)[keyof typeof RoomReactionConfigScalarFieldEnum]
 
 
 export const GiftTypeScalarFieldEnum = {

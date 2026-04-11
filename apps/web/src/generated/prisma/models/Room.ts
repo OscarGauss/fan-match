@@ -244,6 +244,7 @@ export type RoomWhereInput = {
   messages?: Prisma.MessageListRelationFilter
   giftEvents?: Prisma.GiftEventListRelationFilter
   giftConfig?: Prisma.RoomGiftConfigListRelationFilter
+  reactionConfig?: Prisma.RoomReactionConfigListRelationFilter
   bans?: Prisma.BanListRelationFilter
 }
 
@@ -260,6 +261,7 @@ export type RoomOrderByWithRelationInput = {
   messages?: Prisma.MessageOrderByRelationAggregateInput
   giftEvents?: Prisma.GiftEventOrderByRelationAggregateInput
   giftConfig?: Prisma.RoomGiftConfigOrderByRelationAggregateInput
+  reactionConfig?: Prisma.RoomReactionConfigOrderByRelationAggregateInput
   bans?: Prisma.BanOrderByRelationAggregateInput
 }
 
@@ -279,6 +281,7 @@ export type RoomWhereUniqueInput = Prisma.AtLeast<{
   messages?: Prisma.MessageListRelationFilter
   giftEvents?: Prisma.GiftEventListRelationFilter
   giftConfig?: Prisma.RoomGiftConfigListRelationFilter
+  reactionConfig?: Prisma.RoomReactionConfigListRelationFilter
   bans?: Prisma.BanListRelationFilter
 }, "id">
 
@@ -325,6 +328,7 @@ export type RoomCreateInput = {
   messages?: Prisma.MessageCreateNestedManyWithoutRoomInput
   giftEvents?: Prisma.GiftEventCreateNestedManyWithoutRoomInput
   giftConfig?: Prisma.RoomGiftConfigCreateNestedManyWithoutRoomInput
+  reactionConfig?: Prisma.RoomReactionConfigCreateNestedManyWithoutRoomInput
   bans?: Prisma.BanCreateNestedManyWithoutRoomInput
 }
 
@@ -341,6 +345,7 @@ export type RoomUncheckedCreateInput = {
   messages?: Prisma.MessageUncheckedCreateNestedManyWithoutRoomInput
   giftEvents?: Prisma.GiftEventUncheckedCreateNestedManyWithoutRoomInput
   giftConfig?: Prisma.RoomGiftConfigUncheckedCreateNestedManyWithoutRoomInput
+  reactionConfig?: Prisma.RoomReactionConfigUncheckedCreateNestedManyWithoutRoomInput
   bans?: Prisma.BanUncheckedCreateNestedManyWithoutRoomInput
 }
 
@@ -357,6 +362,7 @@ export type RoomUpdateInput = {
   messages?: Prisma.MessageUpdateManyWithoutRoomNestedInput
   giftEvents?: Prisma.GiftEventUpdateManyWithoutRoomNestedInput
   giftConfig?: Prisma.RoomGiftConfigUpdateManyWithoutRoomNestedInput
+  reactionConfig?: Prisma.RoomReactionConfigUpdateManyWithoutRoomNestedInput
   bans?: Prisma.BanUpdateManyWithoutRoomNestedInput
 }
 
@@ -373,6 +379,7 @@ export type RoomUncheckedUpdateInput = {
   messages?: Prisma.MessageUncheckedUpdateManyWithoutRoomNestedInput
   giftEvents?: Prisma.GiftEventUncheckedUpdateManyWithoutRoomNestedInput
   giftConfig?: Prisma.RoomGiftConfigUncheckedUpdateManyWithoutRoomNestedInput
+  reactionConfig?: Prisma.RoomReactionConfigUncheckedUpdateManyWithoutRoomNestedInput
   bans?: Prisma.BanUncheckedUpdateManyWithoutRoomNestedInput
 }
 
@@ -495,6 +502,20 @@ export type RoomUpdateOneRequiredWithoutMessagesNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.RoomUpdateToOneWithWhereWithoutMessagesInput, Prisma.RoomUpdateWithoutMessagesInput>, Prisma.RoomUncheckedUpdateWithoutMessagesInput>
 }
 
+export type RoomCreateNestedOneWithoutReactionConfigInput = {
+  create?: Prisma.XOR<Prisma.RoomCreateWithoutReactionConfigInput, Prisma.RoomUncheckedCreateWithoutReactionConfigInput>
+  connectOrCreate?: Prisma.RoomCreateOrConnectWithoutReactionConfigInput
+  connect?: Prisma.RoomWhereUniqueInput
+}
+
+export type RoomUpdateOneRequiredWithoutReactionConfigNestedInput = {
+  create?: Prisma.XOR<Prisma.RoomCreateWithoutReactionConfigInput, Prisma.RoomUncheckedCreateWithoutReactionConfigInput>
+  connectOrCreate?: Prisma.RoomCreateOrConnectWithoutReactionConfigInput
+  upsert?: Prisma.RoomUpsertWithoutReactionConfigInput
+  connect?: Prisma.RoomWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.RoomUpdateToOneWithWhereWithoutReactionConfigInput, Prisma.RoomUpdateWithoutReactionConfigInput>, Prisma.RoomUncheckedUpdateWithoutReactionConfigInput>
+}
+
 export type RoomCreateNestedOneWithoutGiftConfigInput = {
   create?: Prisma.XOR<Prisma.RoomCreateWithoutGiftConfigInput, Prisma.RoomUncheckedCreateWithoutGiftConfigInput>
   connectOrCreate?: Prisma.RoomCreateOrConnectWithoutGiftConfigInput
@@ -549,6 +570,7 @@ export type RoomCreateWithoutMembersInput = {
   messages?: Prisma.MessageCreateNestedManyWithoutRoomInput
   giftEvents?: Prisma.GiftEventCreateNestedManyWithoutRoomInput
   giftConfig?: Prisma.RoomGiftConfigCreateNestedManyWithoutRoomInput
+  reactionConfig?: Prisma.RoomReactionConfigCreateNestedManyWithoutRoomInput
   bans?: Prisma.BanCreateNestedManyWithoutRoomInput
 }
 
@@ -564,6 +586,7 @@ export type RoomUncheckedCreateWithoutMembersInput = {
   messages?: Prisma.MessageUncheckedCreateNestedManyWithoutRoomInput
   giftEvents?: Prisma.GiftEventUncheckedCreateNestedManyWithoutRoomInput
   giftConfig?: Prisma.RoomGiftConfigUncheckedCreateNestedManyWithoutRoomInput
+  reactionConfig?: Prisma.RoomReactionConfigUncheckedCreateNestedManyWithoutRoomInput
   bans?: Prisma.BanUncheckedCreateNestedManyWithoutRoomInput
 }
 
@@ -595,6 +618,7 @@ export type RoomUpdateWithoutMembersInput = {
   messages?: Prisma.MessageUpdateManyWithoutRoomNestedInput
   giftEvents?: Prisma.GiftEventUpdateManyWithoutRoomNestedInput
   giftConfig?: Prisma.RoomGiftConfigUpdateManyWithoutRoomNestedInput
+  reactionConfig?: Prisma.RoomReactionConfigUpdateManyWithoutRoomNestedInput
   bans?: Prisma.BanUpdateManyWithoutRoomNestedInput
 }
 
@@ -610,6 +634,7 @@ export type RoomUncheckedUpdateWithoutMembersInput = {
   messages?: Prisma.MessageUncheckedUpdateManyWithoutRoomNestedInput
   giftEvents?: Prisma.GiftEventUncheckedUpdateManyWithoutRoomNestedInput
   giftConfig?: Prisma.RoomGiftConfigUncheckedUpdateManyWithoutRoomNestedInput
+  reactionConfig?: Prisma.RoomReactionConfigUncheckedUpdateManyWithoutRoomNestedInput
   bans?: Prisma.BanUncheckedUpdateManyWithoutRoomNestedInput
 }
 
@@ -625,6 +650,7 @@ export type RoomCreateWithoutMessagesInput = {
   members?: Prisma.RoomMemberCreateNestedManyWithoutRoomInput
   giftEvents?: Prisma.GiftEventCreateNestedManyWithoutRoomInput
   giftConfig?: Prisma.RoomGiftConfigCreateNestedManyWithoutRoomInput
+  reactionConfig?: Prisma.RoomReactionConfigCreateNestedManyWithoutRoomInput
   bans?: Prisma.BanCreateNestedManyWithoutRoomInput
 }
 
@@ -640,6 +666,7 @@ export type RoomUncheckedCreateWithoutMessagesInput = {
   members?: Prisma.RoomMemberUncheckedCreateNestedManyWithoutRoomInput
   giftEvents?: Prisma.GiftEventUncheckedCreateNestedManyWithoutRoomInput
   giftConfig?: Prisma.RoomGiftConfigUncheckedCreateNestedManyWithoutRoomInput
+  reactionConfig?: Prisma.RoomReactionConfigUncheckedCreateNestedManyWithoutRoomInput
   bans?: Prisma.BanUncheckedCreateNestedManyWithoutRoomInput
 }
 
@@ -671,6 +698,7 @@ export type RoomUpdateWithoutMessagesInput = {
   members?: Prisma.RoomMemberUpdateManyWithoutRoomNestedInput
   giftEvents?: Prisma.GiftEventUpdateManyWithoutRoomNestedInput
   giftConfig?: Prisma.RoomGiftConfigUpdateManyWithoutRoomNestedInput
+  reactionConfig?: Prisma.RoomReactionConfigUpdateManyWithoutRoomNestedInput
   bans?: Prisma.BanUpdateManyWithoutRoomNestedInput
 }
 
@@ -684,6 +712,87 @@ export type RoomUncheckedUpdateWithoutMessagesInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   members?: Prisma.RoomMemberUncheckedUpdateManyWithoutRoomNestedInput
+  giftEvents?: Prisma.GiftEventUncheckedUpdateManyWithoutRoomNestedInput
+  giftConfig?: Prisma.RoomGiftConfigUncheckedUpdateManyWithoutRoomNestedInput
+  reactionConfig?: Prisma.RoomReactionConfigUncheckedUpdateManyWithoutRoomNestedInput
+  bans?: Prisma.BanUncheckedUpdateManyWithoutRoomNestedInput
+}
+
+export type RoomCreateWithoutReactionConfigInput = {
+  id?: string
+  name: string
+  description?: string | null
+  recipientWallet?: string | null
+  slowModeSeconds?: number
+  isActive?: boolean
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  members?: Prisma.RoomMemberCreateNestedManyWithoutRoomInput
+  messages?: Prisma.MessageCreateNestedManyWithoutRoomInput
+  giftEvents?: Prisma.GiftEventCreateNestedManyWithoutRoomInput
+  giftConfig?: Prisma.RoomGiftConfigCreateNestedManyWithoutRoomInput
+  bans?: Prisma.BanCreateNestedManyWithoutRoomInput
+}
+
+export type RoomUncheckedCreateWithoutReactionConfigInput = {
+  id?: string
+  name: string
+  description?: string | null
+  recipientWallet?: string | null
+  slowModeSeconds?: number
+  isActive?: boolean
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  members?: Prisma.RoomMemberUncheckedCreateNestedManyWithoutRoomInput
+  messages?: Prisma.MessageUncheckedCreateNestedManyWithoutRoomInput
+  giftEvents?: Prisma.GiftEventUncheckedCreateNestedManyWithoutRoomInput
+  giftConfig?: Prisma.RoomGiftConfigUncheckedCreateNestedManyWithoutRoomInput
+  bans?: Prisma.BanUncheckedCreateNestedManyWithoutRoomInput
+}
+
+export type RoomCreateOrConnectWithoutReactionConfigInput = {
+  where: Prisma.RoomWhereUniqueInput
+  create: Prisma.XOR<Prisma.RoomCreateWithoutReactionConfigInput, Prisma.RoomUncheckedCreateWithoutReactionConfigInput>
+}
+
+export type RoomUpsertWithoutReactionConfigInput = {
+  update: Prisma.XOR<Prisma.RoomUpdateWithoutReactionConfigInput, Prisma.RoomUncheckedUpdateWithoutReactionConfigInput>
+  create: Prisma.XOR<Prisma.RoomCreateWithoutReactionConfigInput, Prisma.RoomUncheckedCreateWithoutReactionConfigInput>
+  where?: Prisma.RoomWhereInput
+}
+
+export type RoomUpdateToOneWithWhereWithoutReactionConfigInput = {
+  where?: Prisma.RoomWhereInput
+  data: Prisma.XOR<Prisma.RoomUpdateWithoutReactionConfigInput, Prisma.RoomUncheckedUpdateWithoutReactionConfigInput>
+}
+
+export type RoomUpdateWithoutReactionConfigInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  recipientWallet?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  slowModeSeconds?: Prisma.IntFieldUpdateOperationsInput | number
+  isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  members?: Prisma.RoomMemberUpdateManyWithoutRoomNestedInput
+  messages?: Prisma.MessageUpdateManyWithoutRoomNestedInput
+  giftEvents?: Prisma.GiftEventUpdateManyWithoutRoomNestedInput
+  giftConfig?: Prisma.RoomGiftConfigUpdateManyWithoutRoomNestedInput
+  bans?: Prisma.BanUpdateManyWithoutRoomNestedInput
+}
+
+export type RoomUncheckedUpdateWithoutReactionConfigInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  recipientWallet?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  slowModeSeconds?: Prisma.IntFieldUpdateOperationsInput | number
+  isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  members?: Prisma.RoomMemberUncheckedUpdateManyWithoutRoomNestedInput
+  messages?: Prisma.MessageUncheckedUpdateManyWithoutRoomNestedInput
   giftEvents?: Prisma.GiftEventUncheckedUpdateManyWithoutRoomNestedInput
   giftConfig?: Prisma.RoomGiftConfigUncheckedUpdateManyWithoutRoomNestedInput
   bans?: Prisma.BanUncheckedUpdateManyWithoutRoomNestedInput
@@ -701,6 +810,7 @@ export type RoomCreateWithoutGiftConfigInput = {
   members?: Prisma.RoomMemberCreateNestedManyWithoutRoomInput
   messages?: Prisma.MessageCreateNestedManyWithoutRoomInput
   giftEvents?: Prisma.GiftEventCreateNestedManyWithoutRoomInput
+  reactionConfig?: Prisma.RoomReactionConfigCreateNestedManyWithoutRoomInput
   bans?: Prisma.BanCreateNestedManyWithoutRoomInput
 }
 
@@ -716,6 +826,7 @@ export type RoomUncheckedCreateWithoutGiftConfigInput = {
   members?: Prisma.RoomMemberUncheckedCreateNestedManyWithoutRoomInput
   messages?: Prisma.MessageUncheckedCreateNestedManyWithoutRoomInput
   giftEvents?: Prisma.GiftEventUncheckedCreateNestedManyWithoutRoomInput
+  reactionConfig?: Prisma.RoomReactionConfigUncheckedCreateNestedManyWithoutRoomInput
   bans?: Prisma.BanUncheckedCreateNestedManyWithoutRoomInput
 }
 
@@ -747,6 +858,7 @@ export type RoomUpdateWithoutGiftConfigInput = {
   members?: Prisma.RoomMemberUpdateManyWithoutRoomNestedInput
   messages?: Prisma.MessageUpdateManyWithoutRoomNestedInput
   giftEvents?: Prisma.GiftEventUpdateManyWithoutRoomNestedInput
+  reactionConfig?: Prisma.RoomReactionConfigUpdateManyWithoutRoomNestedInput
   bans?: Prisma.BanUpdateManyWithoutRoomNestedInput
 }
 
@@ -762,6 +874,7 @@ export type RoomUncheckedUpdateWithoutGiftConfigInput = {
   members?: Prisma.RoomMemberUncheckedUpdateManyWithoutRoomNestedInput
   messages?: Prisma.MessageUncheckedUpdateManyWithoutRoomNestedInput
   giftEvents?: Prisma.GiftEventUncheckedUpdateManyWithoutRoomNestedInput
+  reactionConfig?: Prisma.RoomReactionConfigUncheckedUpdateManyWithoutRoomNestedInput
   bans?: Prisma.BanUncheckedUpdateManyWithoutRoomNestedInput
 }
 
@@ -777,6 +890,7 @@ export type RoomCreateWithoutGiftEventsInput = {
   members?: Prisma.RoomMemberCreateNestedManyWithoutRoomInput
   messages?: Prisma.MessageCreateNestedManyWithoutRoomInput
   giftConfig?: Prisma.RoomGiftConfigCreateNestedManyWithoutRoomInput
+  reactionConfig?: Prisma.RoomReactionConfigCreateNestedManyWithoutRoomInput
   bans?: Prisma.BanCreateNestedManyWithoutRoomInput
 }
 
@@ -792,6 +906,7 @@ export type RoomUncheckedCreateWithoutGiftEventsInput = {
   members?: Prisma.RoomMemberUncheckedCreateNestedManyWithoutRoomInput
   messages?: Prisma.MessageUncheckedCreateNestedManyWithoutRoomInput
   giftConfig?: Prisma.RoomGiftConfigUncheckedCreateNestedManyWithoutRoomInput
+  reactionConfig?: Prisma.RoomReactionConfigUncheckedCreateNestedManyWithoutRoomInput
   bans?: Prisma.BanUncheckedCreateNestedManyWithoutRoomInput
 }
 
@@ -823,6 +938,7 @@ export type RoomUpdateWithoutGiftEventsInput = {
   members?: Prisma.RoomMemberUpdateManyWithoutRoomNestedInput
   messages?: Prisma.MessageUpdateManyWithoutRoomNestedInput
   giftConfig?: Prisma.RoomGiftConfigUpdateManyWithoutRoomNestedInput
+  reactionConfig?: Prisma.RoomReactionConfigUpdateManyWithoutRoomNestedInput
   bans?: Prisma.BanUpdateManyWithoutRoomNestedInput
 }
 
@@ -838,6 +954,7 @@ export type RoomUncheckedUpdateWithoutGiftEventsInput = {
   members?: Prisma.RoomMemberUncheckedUpdateManyWithoutRoomNestedInput
   messages?: Prisma.MessageUncheckedUpdateManyWithoutRoomNestedInput
   giftConfig?: Prisma.RoomGiftConfigUncheckedUpdateManyWithoutRoomNestedInput
+  reactionConfig?: Prisma.RoomReactionConfigUncheckedUpdateManyWithoutRoomNestedInput
   bans?: Prisma.BanUncheckedUpdateManyWithoutRoomNestedInput
 }
 
@@ -854,6 +971,7 @@ export type RoomCreateWithoutBansInput = {
   messages?: Prisma.MessageCreateNestedManyWithoutRoomInput
   giftEvents?: Prisma.GiftEventCreateNestedManyWithoutRoomInput
   giftConfig?: Prisma.RoomGiftConfigCreateNestedManyWithoutRoomInput
+  reactionConfig?: Prisma.RoomReactionConfigCreateNestedManyWithoutRoomInput
 }
 
 export type RoomUncheckedCreateWithoutBansInput = {
@@ -869,6 +987,7 @@ export type RoomUncheckedCreateWithoutBansInput = {
   messages?: Prisma.MessageUncheckedCreateNestedManyWithoutRoomInput
   giftEvents?: Prisma.GiftEventUncheckedCreateNestedManyWithoutRoomInput
   giftConfig?: Prisma.RoomGiftConfigUncheckedCreateNestedManyWithoutRoomInput
+  reactionConfig?: Prisma.RoomReactionConfigUncheckedCreateNestedManyWithoutRoomInput
 }
 
 export type RoomCreateOrConnectWithoutBansInput = {
@@ -900,6 +1019,7 @@ export type RoomUpdateWithoutBansInput = {
   messages?: Prisma.MessageUpdateManyWithoutRoomNestedInput
   giftEvents?: Prisma.GiftEventUpdateManyWithoutRoomNestedInput
   giftConfig?: Prisma.RoomGiftConfigUpdateManyWithoutRoomNestedInput
+  reactionConfig?: Prisma.RoomReactionConfigUpdateManyWithoutRoomNestedInput
 }
 
 export type RoomUncheckedUpdateWithoutBansInput = {
@@ -915,6 +1035,7 @@ export type RoomUncheckedUpdateWithoutBansInput = {
   messages?: Prisma.MessageUncheckedUpdateManyWithoutRoomNestedInput
   giftEvents?: Prisma.GiftEventUncheckedUpdateManyWithoutRoomNestedInput
   giftConfig?: Prisma.RoomGiftConfigUncheckedUpdateManyWithoutRoomNestedInput
+  reactionConfig?: Prisma.RoomReactionConfigUncheckedUpdateManyWithoutRoomNestedInput
 }
 
 
@@ -927,6 +1048,7 @@ export type RoomCountOutputType = {
   messages: number
   giftEvents: number
   giftConfig: number
+  reactionConfig: number
   bans: number
 }
 
@@ -935,6 +1057,7 @@ export type RoomCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.I
   messages?: boolean | RoomCountOutputTypeCountMessagesArgs
   giftEvents?: boolean | RoomCountOutputTypeCountGiftEventsArgs
   giftConfig?: boolean | RoomCountOutputTypeCountGiftConfigArgs
+  reactionConfig?: boolean | RoomCountOutputTypeCountReactionConfigArgs
   bans?: boolean | RoomCountOutputTypeCountBansArgs
 }
 
@@ -979,6 +1102,13 @@ export type RoomCountOutputTypeCountGiftConfigArgs<ExtArgs extends runtime.Types
 /**
  * RoomCountOutputType without action
  */
+export type RoomCountOutputTypeCountReactionConfigArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.RoomReactionConfigWhereInput
+}
+
+/**
+ * RoomCountOutputType without action
+ */
 export type RoomCountOutputTypeCountBansArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   where?: Prisma.BanWhereInput
 }
@@ -997,6 +1127,7 @@ export type RoomSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   messages?: boolean | Prisma.Room$messagesArgs<ExtArgs>
   giftEvents?: boolean | Prisma.Room$giftEventsArgs<ExtArgs>
   giftConfig?: boolean | Prisma.Room$giftConfigArgs<ExtArgs>
+  reactionConfig?: boolean | Prisma.Room$reactionConfigArgs<ExtArgs>
   bans?: boolean | Prisma.Room$bansArgs<ExtArgs>
   _count?: boolean | Prisma.RoomCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["room"]>
@@ -1040,6 +1171,7 @@ export type RoomInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   messages?: boolean | Prisma.Room$messagesArgs<ExtArgs>
   giftEvents?: boolean | Prisma.Room$giftEventsArgs<ExtArgs>
   giftConfig?: boolean | Prisma.Room$giftConfigArgs<ExtArgs>
+  reactionConfig?: boolean | Prisma.Room$reactionConfigArgs<ExtArgs>
   bans?: boolean | Prisma.Room$bansArgs<ExtArgs>
   _count?: boolean | Prisma.RoomCountOutputTypeDefaultArgs<ExtArgs>
 }
@@ -1053,6 +1185,7 @@ export type $RoomPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     messages: Prisma.$MessagePayload<ExtArgs>[]
     giftEvents: Prisma.$GiftEventPayload<ExtArgs>[]
     giftConfig: Prisma.$RoomGiftConfigPayload<ExtArgs>[]
+    reactionConfig: Prisma.$RoomReactionConfigPayload<ExtArgs>[]
     bans: Prisma.$BanPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
@@ -1462,6 +1595,7 @@ export interface Prisma__RoomClient<T, Null = never, ExtArgs extends runtime.Typ
   messages<T extends Prisma.Room$messagesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Room$messagesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$MessagePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   giftEvents<T extends Prisma.Room$giftEventsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Room$giftEventsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$GiftEventPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   giftConfig<T extends Prisma.Room$giftConfigArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Room$giftConfigArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$RoomGiftConfigPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  reactionConfig<T extends Prisma.Room$reactionConfigArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Room$reactionConfigArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$RoomReactionConfigPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   bans<T extends Prisma.Room$bansArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Room$bansArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$BanPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
@@ -1986,6 +2120,30 @@ export type Room$giftConfigArgs<ExtArgs extends runtime.Types.Extensions.Interna
   take?: number
   skip?: number
   distinct?: Prisma.RoomGiftConfigScalarFieldEnum | Prisma.RoomGiftConfigScalarFieldEnum[]
+}
+
+/**
+ * Room.reactionConfig
+ */
+export type Room$reactionConfigArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the RoomReactionConfig
+   */
+  select?: Prisma.RoomReactionConfigSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the RoomReactionConfig
+   */
+  omit?: Prisma.RoomReactionConfigOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.RoomReactionConfigInclude<ExtArgs> | null
+  where?: Prisma.RoomReactionConfigWhereInput
+  orderBy?: Prisma.RoomReactionConfigOrderByWithRelationInput | Prisma.RoomReactionConfigOrderByWithRelationInput[]
+  cursor?: Prisma.RoomReactionConfigWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.RoomReactionConfigScalarFieldEnum | Prisma.RoomReactionConfigScalarFieldEnum[]
 }
 
 /**

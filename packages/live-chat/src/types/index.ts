@@ -22,6 +22,19 @@ export interface GiftDefinition {
   priceAsset: string;
 }
 
+export interface ReactionDefinition {
+  slug: string;
+  emoji: string;
+  label: string;
+}
+
+export interface ReactionEvent {
+  reactionSlug: string;
+  emoji: string;
+  label: string;
+  user: ChatUser;
+}
+
 export interface GiftEvent {
   id: string;
   giftSlug: string;
@@ -74,5 +87,6 @@ export type AblyEvent =
   | { name: "message.new"; data: ChatMessage }
   | { name: "message.deleted"; data: { messageId: string } }
   | { name: "gift.sent"; data: GiftEvent }
+  | { name: "reaction.sent"; data: ReactionEvent }
   | { name: "user.banned"; data: { userId: string } }
   | { name: "room.updated"; data: { slowModeSeconds: number } };

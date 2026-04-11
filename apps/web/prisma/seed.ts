@@ -18,6 +18,17 @@ const GIFT_TYPES = [
   { slug: "diamond", emoji: "💎", label: "Diamante", priceAmount: "10.00", sortOrder: 9 },
 ];
 
+const REACTION_TYPES = [
+  { slug: "clap",    emoji: "👏", label: "Aplauso",  sortOrder: 1 },
+  { slug: "heart",   emoji: "❤️", label: "Corazón",  sortOrder: 2 },
+  { slug: "fire",    emoji: "🔥", label: "Fuego",    sortOrder: 3 },
+  { slug: "laugh",   emoji: "😂", label: "Risa",     sortOrder: 4 },
+  { slug: "wow",     emoji: "😮", label: "Wow",      sortOrder: 5 },
+  { slug: "goat",    emoji: "🐐", label: "GOAT",     sortOrder: 6 },
+  { slug: "bolt",    emoji: "⚡", label: "Rayo",     sortOrder: 7 },
+  { slug: "hundred", emoji: "💯", label: "100",      sortOrder: 8 },
+];
+
 async function main() {
   console.log("Seeding gift types...");
 
@@ -28,6 +39,16 @@ async function main() {
       create: { ...gift, priceAsset: "USDC" },
     });
     console.log(`  ✔ ${gift.emoji} ${gift.label} — $${gift.priceAmount} USDC`);
+  }
+
+  console.log("Seeding reaction types...");
+  for (const r of REACTION_TYPES) {
+    await prisma.reactionType.upsert({
+      where: { slug: r.slug },
+      update: { emoji: r.emoji, label: r.label, sortOrder: r.sortOrder },
+      create: r,
+    });
+    console.log(`  ✔ ${r.emoji} ${r.label}`);
   }
 
   console.log("Seed complete.");

@@ -1,0 +1,5 @@
+[phases.build]
+cmds = ["pnpm --filter web run build"]
+
+[start]
+cmd = "cd apps/web && pnpm start"
