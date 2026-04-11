@@ -1,37 +1,37 @@
-'use client'
+'use client';
 
-import { useEffect, useRef } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import type { DecisionLogEntry, Team } from '@/lib/types'
+import { useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import type { DecisionLogEntry, Team } from '@/lib/types';
 
 export interface AgentDecisionLogProps {
-  entries:   DecisionLogEntry[]
-  activeTab: Team
+  entries: DecisionLogEntry[];
+  activeTab: Team;
 }
 
-const MONO: React.CSSProperties = { fontFamily: 'var(--font-space-mono)' }
-const GREEN = '#00ff88'
+const MONO: React.CSSProperties = { fontFamily: 'var(--font-space-mono)' };
+const GREEN = '#00ff88';
 
 function teamColor(t: Team) {
-  return t === 'red' ? 'var(--red)' : 'var(--blue)'
+  return t === 'red' ? 'var(--red)' : 'var(--blue)';
 }
 
 function formatMs(ms: number) {
-  const s = Math.floor(ms / 1000)
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
+  const s = Math.floor(ms / 1000);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
 /** Truncate GABCDEFGH...XYZ */
 function truncateAddr(addr: string) {
-  if (!addr || addr.length < 10) return addr
-  return `${addr.slice(0, 5)}...${addr.slice(-3)}`
+  if (!addr || addr.length < 10) return addr;
+  return `${addr.slice(0, 5)}...${addr.slice(-3)}`;
 }
 
 // ── Entry renderers ───────────────────────────────────────────────────────────
 
 function ReceivedFunds({ entry, color }: { entry: DecisionLogEntry; color: string }) {
   // message: "received 0.08 USDC from fan_0x3a"
-  const parts = entry.message.match(/^(received )([\d.]+)( USDC.*)$/)
+  const parts = entry.message.match(/^(received )([\d.]+)( USDC.*)$/);
   return (
     <span style={{ color: 'var(--text-muted)' }}>
       {parts ? (
@@ -40,22 +40,20 @@ function ReceivedFunds({ entry, color }: { entry: DecisionLogEntry; color: strin
           <span style={{ color }}>{parts[2]}</span>
           {parts[3]}
         </>
-      ) : entry.message}
+      ) : (
+        entry.message
+      )}
     </span>
-  )
+  );
 }
 
 function Analyzing({ entry }: { entry: DecisionLogEntry }) {
-  return (
-    <span style={{ color: 'var(--text-muted)' }}>
-      {entry.message}
-    </span>
-  )
+  return <span style={{ color: 'var(--text-muted)' }}>{entry.message}</span>;
 }
 
 function Decision({ entry, color }: { entry: DecisionLogEntry; color: string }) {
   // message: "→ upgrading defense positioning"
-  const arrow = entry.message.startsWith('→')
+  const arrow = entry.message.startsWith('→');
   return (
     <span style={{ color, fontWeight: 700 }}>
       {arrow ? (
@@ -63,18 +61,20 @@ function Decision({ entry, color }: { entry: DecisionLogEntry; color: string }) 
           <span style={{ color }}>→</span>
           {entry.message.slice(1)}
         </>
-      ) : entry.message}
+      ) : (
+        entry.message
+      )}
     </span>
-  )
+  );
 }
 
 function TxConfirmed({ entry, color }: { entry: DecisionLogEntry; color: string }) {
   // message: "tx confirmed · GABCD...XYZ → contract · 0.08 USDC · stellar testnet"
   // Parse: address, amount
-  const addrMatch   = entry.message.match(/([A-Z0-9]{5,}\.{3}[A-Z0-9]{3}|G[A-Z0-9]{54})/)
-  const amountMatch = entry.message.match(/([\d.]+) USDC/)
-  const addr   = addrMatch  ? addrMatch[1]  : ''
-  const amount = amountMatch ? amountMatch[1] : ''
+  const addrMatch = entry.message.match(/([A-Z0-9]{5,}\.{3}[A-Z0-9]{3}|G[A-Z0-9]{54})/);
+  const amountMatch = entry.message.match(/([\d.]+) USDC/);
+  const addr = addrMatch ? addrMatch[1] : '';
+  const amount = amountMatch ? amountMatch[1] : '';
 
   return (
     <span>
@@ -83,14 +83,14 @@ function TxConfirmed({ entry, color }: { entry: DecisionLogEntry; color: string 
       {amount && <span style={{ ...MONO, color }}>·{amount} USDC</span>}
       <span style={{ color: 'var(--text-muted)' }}> · testnet</span>
     </span>
-  )
+  );
 }
 
 // ── Single log row ────────────────────────────────────────────────────────────
 
 function LogRow({ entry, color }: { entry: DecisionLogEntry; color: string }) {
-  const isDecision = entry.type === 'decision'
-  const isAnalyzing = entry.type === 'analyzing'
+  const isDecision = entry.type === 'decision';
+  const isAnalyzing = entry.type === 'analyzing';
 
   return (
     <motion.div
@@ -105,33 +105,31 @@ function LogRow({ entry, color }: { entry: DecisionLogEntry; color: string }) {
       }}
     >
       {/* Timestamp */}
-      <span style={{ color: 'var(--text-dim)', flexShrink: 0 }}>
-        [{formatMs(entry.timestamp)}]
-      </span>
+      <span style={{ color: 'var(--text-dim)', flexShrink: 0 }}>[{formatMs(entry.timestamp)}]</span>
 
       {/* Content */}
       <span className="min-w-0 break-words">
         {entry.type === 'received_funds' && <ReceivedFunds entry={entry} color={color} />}
-        {entry.type === 'analyzing'      && <Analyzing entry={entry} />}
-        {entry.type === 'decision'       && <Decision entry={entry} color={color} />}
-        {entry.type === 'tx_confirmed'   && <TxConfirmed entry={entry} color={color} />}
+        {entry.type === 'analyzing' && <Analyzing entry={entry} />}
+        {entry.type === 'decision' && <Decision entry={entry} color={color} />}
+        {entry.type === 'tx_confirmed' && <TxConfirmed entry={entry} color={color} />}
       </span>
     </motion.div>
-  )
+  );
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function AgentDecisionLog({ entries, activeTab }: AgentDecisionLogProps) {
-  const scrollRef = useRef<HTMLDivElement>(null)
-  const color     = teamColor(activeTab)
-  const visible   = entries.filter(e => e.team === activeTab)
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const color = teamColor(activeTab);
+  const visible = entries.filter((e) => e.team === activeTab);
 
   // Auto-scroll to bottom when new entries arrive
   useEffect(() => {
-    const el = scrollRef.current
-    if (el) el.scrollTop = el.scrollHeight
-  }, [visible.length])
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [visible.length]);
 
   return (
     <div
@@ -163,25 +161,19 @@ export default function AgentDecisionLog({ entries, activeTab }: AgentDecisionLo
       </div>
 
       {/* Entries */}
-      <div
-        ref={scrollRef}
-        className="flex flex-1 flex-col overflow-y-auto px-3 py-2"
-      >
+      <div ref={scrollRef} className="flex flex-1 flex-col overflow-y-auto px-3 py-2">
         {visible.length === 0 ? (
-          <p
-            className="m-auto text-[11px] italic"
-            style={{ color: 'var(--text-muted)' }}
-          >
+          <p className="m-auto text-[11px] italic" style={{ color: 'var(--text-muted)' }}>
             waiting for fan support...
           </p>
         ) : (
           <AnimatePresence initial={false}>
-            {visible.map(e => (
+            {visible.map((e) => (
               <LogRow key={`${e.timestamp}-${e.type}`} entry={e} color={color} />
             ))}
           </AnimatePresence>
         )}
       </div>
     </div>
-  )
+  );
 }

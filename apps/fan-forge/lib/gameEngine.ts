@@ -29,10 +29,10 @@ import type {
 
 function makeStats(): AgentStats {
   return {
-    goalkeeper:   BASE_STAT_VALUE,
-    defense:      BASE_STAT_VALUE,
-    midfield:     BASE_STAT_VALUE,
-    forward:      BASE_STAT_VALUE,
+    goalkeeper: BASE_STAT_VALUE,
+    defense: BASE_STAT_VALUE,
+    midfield: BASE_STAT_VALUE,
+    forward: BASE_STAT_VALUE,
     coordination: BASE_STAT_VALUE,
   };
 }
@@ -171,10 +171,10 @@ export class GameEngine {
     agent.stats[statKey] = Math.min(STAT_MAX, oldValue + STAT_UPGRADE_AMOUNT);
 
     const statLabels: Record<keyof AgentStats, string> = {
-      goalkeeper:   'goalkeeper reflexes',
-      defense:      'defense positioning',
-      midfield:     'midfield speed',
-      forward:      'forward power',
+      goalkeeper: 'goalkeeper reflexes',
+      defense: 'defense positioning',
+      midfield: 'midfield speed',
+      forward: 'forward power',
       coordination: 'team coordination',
     };
 
@@ -231,9 +231,7 @@ export class GameEngine {
    * @param elapsedMs - Milliseconds since match start
    */
   getActiveGridEvent(elapsedMs: number): GridEventState | null {
-    const def = GRID_EVENTS.find(
-      (e) => elapsedMs >= e.startMs && elapsedMs < e.endMs,
-    );
+    const def = GRID_EVENTS.find((e) => elapsedMs >= e.startMs && elapsedMs < e.endMs);
     if (!def) return null;
 
     // Preserve the existing grid if we're still in the same event

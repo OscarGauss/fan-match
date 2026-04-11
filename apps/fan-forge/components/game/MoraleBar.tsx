@@ -1,11 +1,11 @@
 interface MoraleBarProps {
-  moraleA: number
-  moraleB: number
+  moraleA: number;
+  moraleB: number;
 }
 
 export default function MoraleBar({ moraleA, moraleB }: MoraleBarProps) {
-  const total = moraleA + moraleB
-  const pctA = total === 0 ? 50 : Math.round((moraleA / total) * 100)
+  const total = moraleA + moraleB;
+  const pctA = total === 0 ? 50 : Math.round((moraleA / total) * 100);
 
   return (
     <div className="flex flex-col gap-1">
@@ -22,5 +22,5 @@ export default function MoraleBar({ moraleA, moraleB }: MoraleBarProps) {
         <div className="h-full flex-1 bg-red-500" />
       </div>
     </div>
-  )
+  );
 }

@@ -3,10 +3,7 @@ import { NextResponse } from 'next/server';
 
 const CHAT_API = process.env.CHAT_API_URL ?? 'http://localhost:3001';
 
-export async function POST(
-  _req: Request,
-  { params }: { params: Promise<{ matchId: string }> },
-) {
+export async function POST(_req: Request, { params }: { params: Promise<{ matchId: string }> }) {
   const { matchId } = await params;
 
   const match = await prisma.match.findUnique({ where: { id: matchId } });

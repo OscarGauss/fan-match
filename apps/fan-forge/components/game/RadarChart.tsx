@@ -1,28 +1,28 @@
-'use client'
+'use client';
 
-import { useState, useEffect } from 'react'
-import { motion } from 'framer-motion'
-import type { AgentStats, Team } from '@/lib/types'
-import { STAT_LABELS } from '@/lib/constants'
+import { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import type { AgentStats, Team } from '@/lib/types';
+import { STAT_LABELS } from '@/lib/constants';
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
 export interface RadarChartProps {
-  stats:      AgentStats
-  team:       Team
-  prevStats?: AgentStats
-  maxHeight?: number
+  stats: AgentStats;
+  team: Team;
+  prevStats?: AgentStats;
+  maxHeight?: number;
 }
 
 // ── Geometry constants ────────────────────────────────────────────────────────
 
-const CX            = 100
-const CY            = 100
-const OUTER_RADIUS  = 72
-const LABEL_OFFSET  = 16        // px beyond outer vertex
-const VALUE_INSET   = 10        // px toward center from data vertex
-const START_DEG     = 270       // top
-const STEP_DEG      = 72        // 360 / 5
+const CX = 100;
+const CY = 100;
+const OUTER_RADIUS = 72;
+const LABEL_OFFSET = 16; // px beyond outer vertex
+const VALUE_INSET = 10; // px toward center from data vertex
+const START_DEG = 270; // top
+const STEP_DEG = 72; // 360 / 5
 
 // Axis order clockwise from top: GK → DEF → FWD → COO → MID
 const AXIS_ORDER: (keyof AgentStats)[] = [
@@ -31,86 +31,85 @@ const AXIS_ORDER: (keyof AgentStats)[] = [
   'forward',
   'coordination',
   'midfield',
-]
+];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function toRad(deg: number) {
-  return (deg * Math.PI) / 180
+  return (deg * Math.PI) / 180;
 }
 
 function axisAngleDeg(i: number) {
-  return START_DEG + i * STEP_DEG
+  return START_DEG + i * STEP_DEG;
 }
 
 function r4(n: number) {
-  return Math.round(n * 1e4) / 1e4
+  return Math.round(n * 1e4) / 1e4;
 }
 
 function vertexAt(value: number, index: number, outerR = OUTER_RADIUS) {
-  const rad = toRad(axisAngleDeg(index))
-  const r   = (value / 100) * outerR
-  return { x: r4(CX + r * Math.cos(rad)), y: r4(CY + r * Math.sin(rad)) }
+  const rad = toRad(axisAngleDeg(index));
+  const r = (value / 100) * outerR;
+  return { x: r4(CX + r * Math.cos(rad)), y: r4(CY + r * Math.sin(rad)) };
 }
 
 function pointsStr(stats: AgentStats) {
   return AXIS_ORDER.map((k, i) => {
-    const v = vertexAt(stats[k], i)
-    return `${v.x},${v.y}`
-  }).join(' ')
+    const v = vertexAt(stats[k], i);
+    return `${v.x},${v.y}`;
+  }).join(' ');
 }
 
 function refPentagonPoints(fraction: number) {
   return AXIS_ORDER.map((_, i) => {
-    const v = vertexAt(fraction * 100, i)
-    return `${v.x},${v.y}`
-  }).join(' ')
+    const v = vertexAt(fraction * 100, i);
+    return `${v.x},${v.y}`;
+  }).join(' ');
 }
 
 function labelPos(index: number) {
-  const rad = toRad(axisAngleDeg(index))
-  const r   = OUTER_RADIUS + LABEL_OFFSET
-  return { x: r4(CX + r * Math.cos(rad)), y: r4(CY + r * Math.sin(rad)) }
+  const rad = toRad(axisAngleDeg(index));
+  const r = OUTER_RADIUS + LABEL_OFFSET;
+  return { x: r4(CX + r * Math.cos(rad)), y: r4(CY + r * Math.sin(rad)) };
 }
 
 // Decide SVG text-anchor based on the axis angle
 function textAnchor(index: number): 'middle' | 'start' | 'end' {
-  const deg = ((axisAngleDeg(index)) % 360 + 360) % 360
-  if (deg > 255 && deg < 285) return 'middle'   // ≈ top
-  if (deg >  75 && deg < 105) return 'middle'   // ≈ bottom
-  if (deg >= 285 || deg <= 75) return 'start'   // right side
-  return 'end'                                   // left side
+  const deg = ((axisAngleDeg(index) % 360) + 360) % 360;
+  if (deg > 255 && deg < 285) return 'middle'; // ≈ top
+  if (deg > 75 && deg < 105) return 'middle'; // ≈ bottom
+  if (deg >= 285 || deg <= 75) return 'start'; // right side
+  return 'end'; // left side
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function RadarChart({ stats, team, prevStats, maxHeight = 180 }: RadarChartProps) {
-  const color     = team === 'red' ? '#ff4d4d' : '#4d9fff'
-  const fillColor = team === 'red' ? '#ff4d4d26' : '#4d9fff26'
+  const color = team === 'red' ? '#ff4d4d' : '#4d9fff';
+  const fillColor = team === 'red' ? '#ff4d4d26' : '#4d9fff26';
 
-  const points = pointsStr(stats)
+  const points = pointsStr(stats);
 
   // Which stats just upgraded
-  const [upgraded, setUpgraded] = useState<Set<keyof AgentStats>>(new Set())
+  const [upgraded, setUpgraded] = useState<Set<keyof AgentStats>>(new Set());
 
   useEffect(() => {
-    if (!prevStats) return
-    const fresh = new Set<keyof AgentStats>()
+    if (!prevStats) return;
+    const fresh = new Set<keyof AgentStats>();
     for (const key of AXIS_ORDER) {
-      if (stats[key] > prevStats[key]) fresh.add(key)
+      if (stats[key] > prevStats[key]) fresh.add(key);
     }
-    if (fresh.size === 0) return
-    setUpgraded(fresh)
-    const t = setTimeout(() => setUpgraded(new Set()), 2000)
-    return () => clearTimeout(t)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stats])
+    if (fresh.size === 0) return;
+    setUpgraded(fresh);
+    const t = setTimeout(() => setUpgraded(new Set()), 2000);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stats]);
 
   return (
     <svg viewBox="0 0 200 200" className="w-full" style={{ maxHeight: `${maxHeight}px` }}>
-
       {/* ── Reference pentagons ── */}
-      {[0.25, 0.5, 0.75].map(f => (
+      {[0.25, 0.5, 0.75].map((f) => (
         <polygon
           key={f}
           points={refPentagonPoints(f)}
@@ -122,16 +121,18 @@ export default function RadarChart({ stats, team, prevStats, maxHeight = 180 }: 
 
       {/* ── Axis lines ── */}
       {AXIS_ORDER.map((_, i) => {
-        const outer = vertexAt(100, i)
+        const outer = vertexAt(100, i);
         return (
           <line
             key={i}
-            x1={CX} y1={CY}
-            x2={outer.x} y2={outer.y}
+            x1={CX}
+            y1={CY}
+            x2={outer.x}
+            y2={outer.y}
             stroke="#ffffff10"
             strokeWidth="0.5"
           />
-        )
+        );
       })}
 
       {/* ── Data polygon ── */}
@@ -146,22 +147,23 @@ export default function RadarChart({ stats, team, prevStats, maxHeight = 180 }: 
 
       {/* ── Vertex dots ── */}
       {AXIS_ORDER.map((key, i) => {
-        const v = vertexAt(stats[key], i)
-        return <circle key={key} cx={v.x} cy={v.y} r={3} fill={color} />
+        const v = vertexAt(stats[key], i);
+        return <circle key={key} cx={v.x} cy={v.y} r={3} fill={color} />;
       })}
 
       {/* ── Axis labels + upgrade arrows ── */}
       {AXIS_ORDER.map((key, i) => {
-        const lp     = labelPos(i)
-        const anchor = textAnchor(i)
+        const lp = labelPos(i);
+        const anchor = textAnchor(i);
         // Offset ↑ to sit just after the label
-        const arrowDx = anchor === 'start' ? 14 : anchor === 'end' ? -14 : 0
-        const arrowDy = anchor === 'middle' ? -10 : 0
+        const arrowDx = anchor === 'start' ? 14 : anchor === 'end' ? -14 : 0;
+        const arrowDy = anchor === 'middle' ? -10 : 0;
 
         return (
           <g key={key}>
             <text
-              x={lp.x} y={lp.y}
+              x={lp.x}
+              y={lp.y}
               textAnchor={anchor}
               dominantBaseline="middle"
               fontSize="9"
@@ -172,7 +174,8 @@ export default function RadarChart({ stats, team, prevStats, maxHeight = 180 }: 
 
             {upgraded.has(key) && (
               <motion.text
-                x={lp.x + arrowDx} y={lp.y + arrowDy}
+                x={lp.x + arrowDx}
+                y={lp.y + arrowDy}
                 textAnchor="middle"
                 dominantBaseline="middle"
                 fontSize="9"
@@ -185,15 +188,15 @@ export default function RadarChart({ stats, team, prevStats, maxHeight = 180 }: 
               </motion.text>
             )}
           </g>
-        )
+        );
       })}
 
       {/* ── Stat values ── */}
       {AXIS_ORDER.map((key, i) => {
-        const v       = vertexAt(stats[key], i)
-        const rad     = toRad(axisAngleDeg(i))
-        const vx      = r4(v.x - VALUE_INSET * Math.cos(rad))
-        const vy      = r4(v.y - VALUE_INSET * Math.sin(rad))
+        const v = vertexAt(stats[key], i);
+        const rad = toRad(axisAngleDeg(i));
+        const vx = r4(v.x - VALUE_INSET * Math.cos(rad));
+        const vy = r4(v.y - VALUE_INSET * Math.sin(rad));
 
         return (
           <motion.g
@@ -204,7 +207,8 @@ export default function RadarChart({ stats, team, prevStats, maxHeight = 180 }: 
             transition={{ duration: 0.3, ease: 'easeOut' }}
           >
             <text
-              x={vx} y={vy}
+              x={vx}
+              y={vy}
               textAnchor="middle"
               dominantBaseline="middle"
               fontSize="8"
@@ -214,9 +218,8 @@ export default function RadarChart({ stats, team, prevStats, maxHeight = 180 }: 
               {stats[key]}
             </text>
           </motion.g>
-        )
+        );
       })}
-
     </svg>
-  )
+  );
 }

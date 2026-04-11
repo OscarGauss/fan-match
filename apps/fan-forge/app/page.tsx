@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type MatchStatus = 'WAITING' | 'ACTIVE' | 'FINISHED'
+type MatchStatus = 'WAITING' | 'ACTIVE' | 'FINISHED';
 
 interface Match {
   id: string;
@@ -38,21 +38,21 @@ function truncate(addr: string) {
 // ── TeamCard ──────────────────────────────────────────────────────────────────
 
 function TeamCard({
-                    team,
-                    label,
-                    accent,
-                    dimBg,
-                    border,
-                    matchId,
-                    ownerWallet,
-                  }: {
-  team: string
-  label: string
-  accent: string
-  dimBg: string
-  border: string
-  matchId: string
-  ownerWallet: string
+  team,
+  label,
+  accent,
+  dimBg,
+  border,
+  matchId,
+  ownerWallet,
+}: {
+  team: string;
+  label: string;
+  accent: string;
+  dimBg: string;
+  border: string;
+  matchId: string;
+  ownerWallet: string;
 }) {
   return (
     <Link
@@ -83,13 +83,19 @@ function TeamCard({
         </div>
 
         <div className="flex flex-col gap-2">
-          {[ 'GK', 'DEF', 'MID', 'FWD' ].map((role) => (
+          {['GK', 'DEF', 'MID', 'FWD'].map((role) => (
             <div key={role} className="flex items-center gap-2">
               <span className="w-8 text-[10px] mono" style={{ color: 'var(--text-dim)' }}>
                 {role}
               </span>
-              <div className="h-1 flex-1 rounded-full" style={{ background: 'var(--border-accent)' }}>
-                <div className="h-full w-1/2 rounded-full" style={{ background: accent, opacity: 0.6 }} />
+              <div
+                className="h-1 flex-1 rounded-full"
+                style={{ background: 'var(--border-accent)' }}
+              >
+                <div
+                  className="h-full w-1/2 rounded-full"
+                  style={{ background: accent, opacity: 0.6 }}
+                />
               </div>
             </div>
           ))}
@@ -109,15 +115,15 @@ function TeamCard({
 // ── CreateMatchModal ──────────────────────────────────────────────────────────
 
 function CreateMatchModal({
-                            onClose,
-                            onCreated,
-                          }: {
-  onClose: () => void
-  onCreated: (match: Match) => void
+  onClose,
+  onCreated,
+}: {
+  onClose: () => void;
+  onCreated: (match: Match) => void;
 }) {
-  const [ name, setName ] = useState('');
-  const [ loading, setLoading ] = useState(false);
-  const [ error, setError ] = useState('');
+  const [name, setName] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const { walletAddress } = usePollar();
   const ownerWallet = walletAddress;
 
@@ -154,13 +160,19 @@ function CreateMatchModal({
         style={{ background: 'var(--bg-panel)', borderColor: 'var(--border-accent)' }}
         onClick={(e) => e.stopPropagation()}
       >
-        <p className="mb-5 text-base font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>
+        <p
+          className="mb-5 text-base font-bold tracking-tight"
+          style={{ color: 'var(--text-primary)' }}
+        >
           New match
         </p>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
+            <label
+              className="text-xs uppercase tracking-widest"
+              style={{ color: 'var(--text-muted)' }}
+            >
               Match name
             </label>
             <input
@@ -178,7 +190,10 @@ function CreateMatchModal({
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
+            <label
+              className="text-xs uppercase tracking-widest"
+              style={{ color: 'var(--text-muted)' }}
+            >
               Owner wallet
               <span className="ml-1 normal-case" style={{ color: 'var(--text-dim)' }}>
                 (from Pollar)
@@ -266,11 +281,11 @@ function MatchCard({ match, onSelect }: { match: Match; onSelect: () => void }) 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function LobbyPage() {
-  const [ step, setStep ] = useState<'matches' | 'teams'>('matches');
-  const [ matches, setMatches ] = useState<Match[]>([]);
-  const [ loading, setLoading ] = useState(true);
-  const [ selectedMatch, setSelectedMatch ] = useState<Match | null>(null);
-  const [ showCreate, setShowCreate ] = useState(false);
+  const [step, setStep] = useState<'matches' | 'teams'>('matches');
+  const [matches, setMatches] = useState<Match[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
   const { openLoginModal, isAuthenticated } = usePollar();
 
   useEffect(() => {
@@ -286,7 +301,7 @@ export default function LobbyPage() {
   }
 
   function handleCreated(match: Match) {
-    setMatches((prev) => [ match, ...prev ]);
+    setMatches((prev) => [match, ...prev]);
     setShowCreate(false);
   }
 
@@ -305,7 +320,10 @@ export default function LobbyPage() {
     >
       {/* Logo */}
       <div className="mb-4 flex items-baseline gap-0">
-        <span className="text-6xl font-black tracking-tight" style={{ color: 'var(--text-primary)' }}>
+        <span
+          className="text-6xl font-black tracking-tight"
+          style={{ color: 'var(--text-primary)' }}
+        >
           Fan
         </span>
         <span className="text-6xl font-black tracking-tight" style={{ color: 'var(--red)' }}>
@@ -323,7 +341,10 @@ export default function LobbyPage() {
       {step === 'matches' && (
         <div className="w-full max-w-sm">
           <div className="mb-4 flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
+            <span
+              className="text-xs font-bold uppercase tracking-widest"
+              style={{ color: 'var(--text-muted)' }}
+            >
               Select a match
             </span>
             <button

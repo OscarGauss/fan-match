@@ -1,26 +1,26 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 /* ── Design tokens ──────────────────────────────────────────────────────── */
 :root {
-  --bg-root:        #0a0a0f;
-  --bg-panel:       #13131a;
-  --bg-surface:     #1a1a24;
-  --border:         #1e1e2a;
-  --border-accent:  #2a2a3a;
+  --bg-root: #0a0a0f;
+  --bg-panel: #13131a;
+  --bg-surface: #1a1a24;
+  --border: #1e1e2a;
+  --border-accent: #2a2a3a;
 
-  --text-primary:   #f0ede8;
-  --text-muted:     #555566;
-  --text-dim:       #333344;
+  --text-primary: #f0ede8;
+  --text-muted: #555566;
+  --text-dim: #333344;
 
-  --red:            #ff4d4d;
-  --red-dim:        #ff4d4d22;
-  --red-border:     #ff4d4d44;
+  --red: #ff4d4d;
+  --red-dim: #ff4d4d22;
+  --red-border: #ff4d4d44;
 
-  --blue:           #4d9fff;
-  --blue-dim:       #4d9fff22;
-  --blue-border:    #4d9fff44;
+  --blue: #4d9fff;
+  --blue-dim: #4d9fff22;
+  --blue-border: #4d9fff44;
 
-  --gold:           #ffc84d;
+  --gold: #ffc84d;
 }
 
 /* ── Tailwind theme bridge ──────────────────────────────────────────────── */
@@ -44,5 +44,5 @@ body {
 [data-mono],
 code,
 pre {
-  font-family: var(--font-space-mono), "Courier New", monospace;
+  font-family: var(--font-space-mono), 'Courier New', monospace;
 }

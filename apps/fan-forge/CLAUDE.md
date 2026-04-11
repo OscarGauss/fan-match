@@ -40,6 +40,7 @@ Built for the **Agents on Stellar Hackathon 2026**.
 ## AI Agents
 
 Two agents total, one per team:
+
 - `AgentRed` — controls Team A
 - `AgentBlue` — controls Team B
 
@@ -57,12 +58,12 @@ If no one funds an agent, it plays with base stats — no upgrades.
 
 ### Upgradeable stats
 
-| Role | Stat |
-|------|------|
-| Goalkeeper | Reflexes |
-| Defense | Positioning |
-| Midfield | Speed |
-| Forward | Power |
+| Role       | Stat        |
+| ---------- | ----------- |
+| Goalkeeper | Reflexes    |
+| Defense    | Positioning |
+| Midfield   | Speed       |
+| Forward    | Power       |
 
 ### Decision log format
 
@@ -89,12 +90,12 @@ If no one funds an agent, it plays with base stats — no upgrades.
 
 ## Economy
 
-| User action | Stellar action |
-|-------------|---------------|
-| Paints a pixel | 0.01 USDC → agent wallet |
-| Buys extra pixels | USDC → game contract |
-| Stakes on team | USDC locked in Soroban contract |
-| Wins match | Contract auto-distributes payout |
+| User action       | Stellar action                   |
+| ----------------- | -------------------------------- |
+| Paints a pixel    | 0.01 USDC → agent wallet         |
+| Buys extra pixels | USDC → game contract             |
+| Stakes on team    | USDC locked in Soroban contract  |
+| Wins match        | Contract auto-distributes payout |
 
 Staking is open from match start until minute 2:30. Winners receive their stake back plus a proportional share of the losing pool.
 
@@ -102,16 +103,16 @@ Staking is open from match start until minute 2:30. Winners receive their stake 
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|-----------|
-| Frontend | Next.js 16 + React 19 + Tailwind v4 |
-| Animations | Framer Motion |
-| Match simulation | 2D Canvas (top-down, no 3D) |
-| AI agents | Rule-based autonomous logic |
-| Real-time | WebSockets (socket.io) |
-| Blockchain | Stellar testnet + Soroban |
-| Wallet | Pollar (invisible to user) |
-| Micropayments | x402 on Stellar |
+| Layer            | Technology                          |
+| ---------------- | ----------------------------------- |
+| Frontend         | Next.js 16 + React 19 + Tailwind v4 |
+| Animations       | Framer Motion                       |
+| Match simulation | 2D Canvas (top-down, no 3D)         |
+| AI agents        | Rule-based autonomous logic         |
+| Real-time        | WebSockets (socket.io)              |
+| Blockchain       | Stellar testnet + Soroban           |
+| Wallet           | Pollar (invisible to user)          |
+| Micropayments    | x402 on Stellar                     |
 
 ---
 

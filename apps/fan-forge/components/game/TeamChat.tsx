@@ -8,5 +8,5 @@ export default function TeamChat() {
         <p className="text-sm text-zinc-400">Messages will appear here</p>
       </div>
     </div>
-  )
+  );
 }
