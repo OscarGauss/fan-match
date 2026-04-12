@@ -135,7 +135,7 @@ cmds = [
 ]
 
 [start]
-cmd = "./notify.sh RUNTIME cd apps/fan-forge && pnpm start"
+cmd = "./notify.sh RUNTIME pnpm --filter fan-forge start"
 ```
 
 ### `apps/chat-api/nixpacks.toml`
@@ -154,7 +154,7 @@ cmds = [
 ]
 
 [start]
-cmd = "./notify.sh RUNTIME cd apps/chat-api && pnpm start"
+cmd = "./notify.sh RUNTIME pnpm --filter chat-api start"
 ```
 
 > `curl` is listed in `nixPkgs` explicitly because it is required by `notify.sh` and may not be present in all Nixpacks base images.

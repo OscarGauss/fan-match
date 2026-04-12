@@ -11,4 +11,4 @@ cmds = [
 ]
 
 [start]
-cmd = "./notify.sh RUNTIME cd apps/chat-api && pnpm start"
+cmd = "./notify.sh RUNTIME pnpm --filter chat-api start"
