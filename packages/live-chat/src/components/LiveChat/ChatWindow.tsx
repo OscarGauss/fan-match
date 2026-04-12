@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import type { ChatMessage, RoomRole } from "../../types";
-import { MessageBubble } from "./MessageBubble";
+import { useEffect, useRef } from 'react';
+import type { ChatMessage, RoomRole } from '../../types';
+import { MessageBubble } from './MessageBubble';
 
 interface ChatWindowProps {
   messages: ChatMessage[];
