@@ -1,8 +1,17 @@
+[phases.setup]
+nixPkgs = ["nodejs_22", "pnpm-9_x", "openssl", "curl"]
+
+[phases.install]
+# Envolvemos el install original
+cmds = ["chmod +x ./notify.sh", "./notify.sh INSTALL pnpm i --frozen-lockfile"]
+
 [phases.build]
+# Envolvemos los comandos de build
 cmds = [
-  "pnpm --filter fan-forge exec prisma generate",
-  "pnpm --filter fan-forge run build"
+    "./notify.sh PRISMA pnpm --filter fan-forge exec prisma generate",
+    "./notify.sh BUILD pnpm --filter fan-forge run build"
 ]
 
 [start]
-cmd = "cd apps/fan-forge && pnpm start"
+# Envolvemos el comando de inicio
+cmd = "./notify.sh RUNTIME cd apps/fan-forge && pnpm start"

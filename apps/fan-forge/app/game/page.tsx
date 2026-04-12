@@ -22,7 +22,7 @@ import { GiftOverlay, LiveChat } from '@fan-match/live-chat';
 import { usePollar, WalletButton } from '@pollar/react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useSearchParams } from 'next/navigation';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 
 const CHAT_API = `${process.env.NEXT_PUBLIC_CHAT_API_URL ?? 'http://localhost:3001'}/api`;
 
@@ -93,6 +93,14 @@ function TeamToggle({ value, onChange }: { value: Team; onChange: (t: Team) => v
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function GamePage() {
+  return (
+    <Suspense>
+      <GamePageInner />
+    </Suspense>
+  );
+}
+
+function GamePageInner() {
   // ── Engine ───────────────────────────────────────────────────────────────
   const engineRef = useRef<GameEngine | null>(null);
   const startTimeRef = useRef<number | null>(null);
