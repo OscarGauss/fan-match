@@ -139,6 +139,22 @@ export default function GamePage() {
       .catch(console.error);
   }, [isAuthenticated, walletAddress]);
 
+  // ── Fetch agent public keys once on mount ────────────────────────────────
+  useEffect(() => {
+    async function fetchKeys() {
+      try {
+        const [red, blue] = await Promise.all([
+          fetch('/api/agent/balance?agentId=red').then((r) => r.json()),
+          fetch('/api/agent/balance?agentId=blue').then((r) => r.json()),
+        ]);
+        setAgentKeys({ red: red.publicKey ?? '', blue: blue.publicKey ?? '' });
+      } catch {
+        // leave keys empty — FundSection will catch the error gracefully
+      }
+    }
+    fetchKeys();
+  }, []);
+
   // ── State ─────────────────────────────────────────────────────────────────
   const [matchState, setMatchState] = useState<MatchState>(() => engineRef.current!.getState());
   const [decisionLog, setDecisionLog] = useState<DecisionLogEntry[]>([]);
@@ -150,6 +166,7 @@ export default function GamePage() {
   const [stakedTeam, setStakedTeam] = useState<Team | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [bottomView, setBottomView] = useState<'chat' | 'grid'>('chat');
+  const [agentKeys, setAgentKeys] = useState<{ red: string; blue: string }>({ red: '', blue: '' });
 
   // Persistent grid — always available, rotates through shapes each round
   const [persistentGrid, setPersistentGrid] = useState<GridEventState>(() => ({
@@ -215,6 +232,39 @@ export default function GamePage() {
     return () => clearInterval(id);
   }, []);
 
+  // ── Poll real USDC balances every 15 s during active match ───────────────
+  useEffect(() => {
+    if (matchState.status !== 'active') return;
+    const id = setInterval(async () => {
+      try {
+        const [red, blue] = await Promise.all([
+          fetch('/api/agent/balance?agentId=red').then((r) => r.json()),
+          fetch('/api/agent/balance?agentId=blue').then((r) => r.json()),
+        ]);
+        setMatchState((prev) => {
+          if (
+            prev.agents.red.usdcReceived === (red.balance ?? 0) &&
+            prev.agents.blue.usdcReceived === (blue.balance ?? 0)
+          )
+            return prev;
+          return {
+            ...prev,
+            agents: {
+              red: { ...prev.agents.red, usdcReceived: red.balance ?? prev.agents.red.usdcReceived },
+              blue: {
+                ...prev.agents.blue,
+                usdcReceived: blue.balance ?? prev.agents.blue.usdcReceived,
+              },
+            },
+          };
+        });
+      } catch {
+        // non-critical — silently ignore
+      }
+    }, 15_000);
+    return () => clearInterval(id);
+  }, [matchState.status]);
+
   // ── Handlers ──────────────────────────────────────────────────────────────
 
   const handleFeedEntry = useCallback((entry: FeedEntry) => {
@@ -231,6 +281,10 @@ export default function GamePage() {
 
   const handleFundAgent = useCallback((team: Team, amount: number) => {
     const entries = engineRef.current!.applyAgentFunding(team, amount);
+    setDecisionLog((prev) => [...prev, ...entries].slice(-100));
+  }, []);
+
+  const handleLogEntries = useCallback((entries: DecisionLogEntry[]) => {
     setDecisionLog((prev) => [...prev, ...entries].slice(-100));
   }, []);
 
@@ -536,6 +590,10 @@ export default function GamePage() {
               activeView={agentView}
               onViewChange={setAgentView}
               onFundAgent={handleFundAgent}
+              walletAddress={walletAddress}
+              getClient={getClient}
+              agentPublicKey={agentKeys[userTeam]}
+              onLogEntries={handleLogEntries}
             />
           </div>
 

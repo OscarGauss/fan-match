@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import type { AgentState, AgentStats, Team } from '@/lib/types';
+import type { AgentState, AgentStats, DecisionLogEntry, Team } from '@/lib/types';
 import { STAT_LABELS } from '@/lib/constants';
 import RadarChart from './RadarChart';
 
@@ -17,6 +17,10 @@ export interface AgentPanelProps {
   activeView: AgentView;
   onViewChange: (v: AgentView) => void;
   onFundAgent: (team: Team, amountUsdc: number) => void;
+  walletAddress: string | undefined;
+  getClient: () => unknown;
+  agentPublicKey: string;
+  onLogEntries: (entries: DecisionLogEntry[]) => void;
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -115,18 +119,72 @@ function FundSlider({
 
 // ── Fund section ──────────────────────────────────────────────────────────────
 
-function FundSection({ team, onFund }: { team: Team; onFund: (amount: number) => void }) {
+const USDC_ISSUER_TESTNET = 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5';
+type TxState = 'idle' | 'connecting' | 'sending' | 'confirming' | 'done' | 'error';
+
+function FundSection({
+  team,
+  onFund,
+  walletAddress,
+  getClient,
+  agentPublicKey,
+  onLogEntries,
+}: {
+  team: Team;
+  onFund: (amount: number) => void;
+  walletAddress: string | undefined;
+  getClient: () => unknown;
+  agentPublicKey: string;
+  onLogEntries: (entries: DecisionLogEntry[]) => void;
+}) {
   const [value, setValue] = useState(0.1);
-  const [confirming, setConfirming] = useState(false);
+  const [txState, setTxState] = useState<TxState>('idle');
 
   const color = teamColor(team);
   const colorRaw = teamColorRaw(team);
   const activePill = FUND_AMOUNTS.find((a) => Math.abs(a - value) < 0.001) ?? null;
 
-  function handleConfirm() {
-    onFund(value);
-    setConfirming(true);
-    setTimeout(() => setConfirming(false), 1000);
+  async function handleConfirm() {
+    if (!walletAddress) {
+      setTxState('connecting');
+      setTimeout(() => setTxState('idle'), 2000);
+      return;
+    }
+
+    try {
+      setTxState('sending');
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const client = (getClient as () => any)();
+      await client.buildTx('payment', {
+        destination: agentPublicKey,
+        amount: value.toFixed(7),
+        asset: { type: 'credit_alphanum4', code: 'USDC', issuer: USDC_ISSUER_TESTNET },
+      });
+      const built = client.getTransactionState();
+      if (!built || built.step !== 'built') throw new Error('build failed');
+      await client.signAndSubmitTx(built.buildData.unsignedXdr);
+      const final = client.getTransactionState();
+      if (!final || final.step !== 'success') throw new Error('tx failed');
+      const txHash: string = final.hash;
+
+      setTxState('confirming');
+
+      const res = await fetch('/api/agent/fund', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ agentId: team, txHash, amount: value, fanAddress: walletAddress }),
+      });
+      const data = await res.json();
+
+      setTxState('done');
+      onFund(value);
+      onLogEntries(data.logEntries ?? []);
+      setTimeout(() => setTxState('idle'), 1500);
+    } catch {
+      setTxState('error');
+      setTimeout(() => setTxState('idle'), 2000);
+    }
   }
 
   return (
@@ -172,16 +230,39 @@ function FundSection({ team, onFund }: { team: Team; onFund: (amount: number) =>
 
       {/* CTA — outlined, no fill */}
       <AnimatePresence mode="wait">
-        {confirming ? (
+        {txState !== 'idle' ? (
           <motion.div
-            key="ok"
+            key={txState}
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0 }}
             className="rounded py-1.5 text-center text-[10px] font-bold uppercase tracking-wider"
-            style={{ background: `${colorRaw}18`, color, border: `1px solid ${colorRaw}55` }}
+            style={{
+              background:
+                txState === 'done'
+                  ? '#00ff8818'
+                  : txState === 'error'
+                    ? '#ff4d4d18'
+                    : `${colorRaw}18`,
+              color:
+                txState === 'done'
+                  ? '#00ff88'
+                  : txState === 'error'
+                    ? '#ff4d4d'
+                    : 'var(--text-muted)',
+              border:
+                txState === 'done'
+                  ? '1px solid #00ff8855'
+                  : txState === 'error'
+                    ? '1px solid #ff4d4d55'
+                    : '1px solid var(--border-accent)',
+            }}
           >
-            funded!
+            {txState === 'connecting' && 'connect wallet first'}
+            {txState === 'sending' && 'sending...'}
+            {txState === 'confirming' && 'confirming...'}
+            {txState === 'done' && 'funded! ✓'}
+            {txState === 'error' && 'tx failed'}
           </motion.div>
         ) : (
           <motion.button
@@ -361,10 +442,39 @@ export default function AgentPanel({
   activeView,
   onViewChange,
   onFundAgent,
+  walletAddress,
+  getClient,
+  agentPublicKey,
+  onLogEntries,
 }: AgentPanelProps) {
   const agent = agents[userTeam];
   const color = teamColor(userTeam);
   const agentName = userTeam === 'red' ? 'AgentRed' : 'AgentBlue';
+
+  // ── Live on-chain USDC balance ────────────────────────────────────────────
+  const [liveBalance, setLiveBalance] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!userTeam) return;
+    let cancelled = false;
+
+    async function fetchBalance() {
+      try {
+        const res = await fetch(`/api/agent/balance?agentId=${userTeam}`);
+        const data = await res.json();
+        if (!cancelled) setLiveBalance(data.balance ?? null);
+      } catch {
+        // leave previous value
+      }
+    }
+
+    fetchBalance();
+    const id = setInterval(fetchBalance, 15_000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [userTeam]);
 
   // Track previous stats for upgrade flashing
   const prevStatsRef = useRef<AgentStats>({ ...agent.stats });
@@ -438,19 +548,31 @@ export default function AgentPanel({
               <span className="text-sm font-bold" style={{ ...MONO, color }}>
                 {agentName}
               </span>
-              <span className="text-[10px]" style={{ ...MONO, color: 'var(--text-muted)' }}>
-                {truncateAddr(agent.walletAddress)}
-              </span>
+              {agentPublicKey ? (
+                <a
+                  href={`https://stellar.expert/explorer/testnet/account/${agentPublicKey}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[10px] transition-opacity hover:opacity-100"
+                  style={{ ...MONO, color: 'var(--text-muted)', opacity: 0.7, textDecoration: 'none' }}
+                >
+                  {truncateAddr(agentPublicKey)} ↗
+                </a>
+              ) : (
+                <span className="text-[10px]" style={{ ...MONO, color: 'var(--text-muted)' }}>
+                  —
+                </span>
+              )}
             </div>
             <motion.div
-              key={agent.usdcReceived}
+              key={liveBalance ?? agent.usdcReceived}
               initial={{ scale: 1 }}
               animate={{ scale: [1, 1.08, 1] }}
               transition={{ duration: 0.35, ease: 'easeOut' }}
               className="flex flex-col items-end"
             >
               <span className="text-base font-bold leading-none" style={{ ...MONO, color }}>
-                {agent.usdcReceived.toFixed(2)}
+                {liveBalance !== null ? liveBalance.toFixed(2) : agent.usdcReceived.toFixed(2)}
               </span>
               <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
                 USDC
@@ -501,7 +623,14 @@ export default function AgentPanel({
           )}
 
           {/* Fund section — always visible */}
-          <FundSection team={userTeam} onFund={(amount) => onFundAgent(userTeam, amount)} />
+          <FundSection
+            team={userTeam}
+            onFund={(amount) => onFundAgent(userTeam, amount)}
+            walletAddress={walletAddress}
+            getClient={getClient}
+            agentPublicKey={agentPublicKey}
+            onLogEntries={onLogEntries}
+          />
         </div>
       )}
     </div>
