@@ -24,18 +24,30 @@ export function MessageBubble({
 }: MessageBubbleProps) {
   const isMod = role === "OWNER" || role === "MODERATOR";
   const isOwnMessage = message.user.id === currentUserId;
-  const displayName = message.user.username ?? `${message.user.walletAddress.slice(0, 6)}...`;
+  const displayName =
+    message.user.username ?? `${message.user.walletAddress.slice(0, 6)}...`;
   const time = new Date(message.createdAt).toLocaleTimeString([], {
     hour: "2-digit",
     minute: "2-digit",
   });
 
   return (
-    <div className="group flex items-start gap-2 px-3 py-1.5 hover:bg-gray-50 rounded-lg">
+    <div
+      className="group flex items-start gap-2 px-3 py-1.5 rounded-lg transition-colors"
+      onMouseEnter={(e) => {
+        (e.currentTarget as HTMLDivElement).style.background = "var(--bg-surface)";
+      }}
+      onMouseLeave={(e) => {
+        (e.currentTarget as HTMLDivElement).style.background = "transparent";
+      }}
+    >
       {/* Avatar */}
       <div
-        className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold"
-        style={{ backgroundColor: message.user.avatarColor }}
+        className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold"
+        style={{
+          backgroundColor: message.user.avatarColor,
+          color: "#0a0a0f",
+        }}
       >
         {getInitials(message.user.username, message.user.walletAddress)}
       </div>
@@ -49,18 +61,29 @@ export function MessageBubble({
           >
             {displayName}
           </span>
-          <span className="text-[10px] text-gray-400 flex-shrink-0">{time}</span>
+          <span className="text-[10px] flex-shrink-0" style={{ color: "var(--text-dim)" }}>
+            {time}
+          </span>
         </div>
-        <p className="text-sm text-gray-800 break-words leading-snug">{message.content}</p>
+        <p className="text-sm break-words leading-snug" style={{ color: "var(--text-primary)" }}>
+          {message.content}
+        </p>
       </div>
 
-      {/* Mod actions — shown on hover */}
+      {/* Mod actions */}
       {isMod && !isOwnMessage && (
         <div className="flex-shrink-0 hidden group-hover:flex items-center gap-1">
           {onDelete && (
             <button
               onClick={() => onDelete(message.id)}
-              className="p-1 text-gray-400 hover:text-red-500 rounded transition-colors"
+              className="p-1 rounded transition-colors"
+              style={{ color: "var(--text-muted)" }}
+              onMouseEnter={(e) =>
+                ((e.currentTarget as HTMLButtonElement).style.color = "var(--red)")
+              }
+              onMouseLeave={(e) =>
+                ((e.currentTarget as HTMLButtonElement).style.color = "var(--text-muted)")
+              }
               title="Delete message"
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -71,7 +94,14 @@ export function MessageBubble({
           {onBan && (
             <button
               onClick={() => onBan(message.user.id)}
-              className="p-1 text-gray-400 hover:text-orange-500 rounded transition-colors"
+              className="p-1 rounded transition-colors"
+              style={{ color: "var(--text-muted)" }}
+              onMouseEnter={(e) =>
+                ((e.currentTarget as HTMLButtonElement).style.color = "var(--red)")
+              }
+              onMouseLeave={(e) =>
+                ((e.currentTarget as HTMLButtonElement).style.color = "var(--text-muted)")
+              }
               title="Ban user"
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

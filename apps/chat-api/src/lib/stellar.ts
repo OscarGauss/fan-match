@@ -64,6 +64,7 @@ export async function verifyGiftPayment(params: {
 
     // Look for a payment operation that matches expectations
     const paymentOp = ops._embedded.records.find((op) => {
+      console.log(op, {expectedAsset, expectedAmount});
       if (op.type !== "payment") return false;
       if (op.to !== expectedTo) return false;
 
@@ -78,6 +79,7 @@ export async function verifyGiftPayment(params: {
       // Check amount (allow small floating point tolerance)
       const paidAmount = parseFloat(op.amount);
       const expected = parseFloat(expectedAmount);
+      console.log({paidAmount, expected});
       return Math.abs(paidAmount - expected) < 0.0001;
     });
 

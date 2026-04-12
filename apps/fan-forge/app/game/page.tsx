@@ -31,8 +31,6 @@ const USDC_ISSUER: Record<string, string> = {
   mainnet: 'GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN',
 };
 
-const recipientWallet = 'GDQCW4W2QFMM6FIKUSNNA3R4DMI2D7PCLP342BOSPCUFEL6BBJ5WWP4K';
-
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function formatTimer(elapsedMs: number) {
@@ -109,6 +107,7 @@ export default function GamePage() {
   // ── External integrations (Pollar / search params) ────────────────────────
   const searchParams = useSearchParams();
   const matchId = searchParams.get('matchId') ?? '';
+  const recipientWallet = searchParams.get('ownerWallet') ?? '';
   const { walletAddress, getClient, isAuthenticated, network } = usePollar();
 
   const [roomId, setRoomId] = useState('');
@@ -542,6 +541,7 @@ export default function GamePage() {
                         apiBaseUrl={CHAT_API}
                         height={200}
                         onBeforeGift={handleBeforeGift}
+                        className="fan-chat"
                       />
                     </div>
                     {/*<EmojiChat*/}

@@ -12,20 +12,15 @@ interface GiftPanelProps {
 
 const QUANTITIES = [1, 5, 10];
 
-export function GiftPanel({
-  gifts,
-  onSendGift,
-  disabled = false,
-}: GiftPanelProps) {
-  const [open, setOpen]               = useState(false);
+export function GiftPanel({ gifts, onSendGift, disabled = false }: GiftPanelProps) {
+  const [open, setOpen] = useState(false);
   const [selectedQty, setSelectedQty] = useState(1);
-  const [sending, setSending]         = useState<string | null>(null);
-  const [panelStyle, setPanelStyle]   = useState<React.CSSProperties>({});
+  const [sending, setSending] = useState<string | null>(null);
+  const [panelStyle, setPanelStyle] = useState<React.CSSProperties>({});
 
   const buttonRef = useRef<HTMLButtonElement>(null);
-  const panelRef  = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
 
-  // Reposition panel when it opens
   useEffect(() => {
     if (!open || !buttonRef.current) return;
     const rect = buttonRef.current.getBoundingClientRect();
@@ -38,7 +33,6 @@ export function GiftPanel({
     });
   }, [open]);
 
-  // Close on outside click
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
@@ -64,20 +58,32 @@ export function GiftPanel({
     (parseFloat(gift.priceAmount) * selectedQty).toFixed(2);
 
   const panel = (
-    <div ref={panelRef} style={panelStyle} className="bg-white border border-gray-100 rounded-2xl shadow-lg overflow-hidden">
+    <div
+      ref={panelRef}
+      style={{
+        ...panelStyle,
+        background: "var(--bg-panel)",
+        border: "1px solid var(--border-accent)",
+        borderRadius: 8,
+        overflow: "hidden",
+      }}
+    >
       <div className="p-3">
         <div className="flex items-center justify-between mb-2">
-          <p className="text-xs font-semibold text-gray-600">Enviar regalo</p>
+          <p className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
+            Enviar regalo
+          </p>
           <div className="flex gap-1">
             {QUANTITIES.map((q) => (
               <button
                 key={q}
                 onClick={() => setSelectedQty(q)}
-                className={`px-2 py-0.5 rounded-full text-xs font-medium transition-colors ${
-                  selectedQty === q
-                    ? "bg-indigo-500 text-white"
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                }`}
+                className="px-2 py-0.5 rounded-full text-xs font-medium transition-colors"
+                style={{
+                  background: selectedQty === q ? "var(--blue)" : "var(--bg-surface)",
+                  color: selectedQty === q ? "#0a0a0f" : "var(--text-muted)",
+                  border: "1px solid var(--border-accent)",
+                }}
               >
                 ×{q}
               </button>
@@ -90,13 +96,22 @@ export function GiftPanel({
               key={gift.slug}
               onClick={() => handleSendGift(gift)}
               disabled={!!sending}
-              className="flex flex-col items-center gap-0.5 p-2 rounded-xl hover:bg-indigo-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors group"
+              className="flex flex-col items-center gap-0.5 p-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed group"
+              style={{ background: "transparent" }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-surface)";
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+              }}
             >
               <span className="text-2xl leading-none group-hover:scale-110 transition-transform">
                 {sending === gift.slug ? "⏳" : gift.emoji}
               </span>
-              <span className="text-[10px] text-gray-500 font-medium leading-tight">{gift.label}</span>
-              <span className="text-[10px] text-indigo-500 font-semibold">
+              <span className="text-[10px] font-medium leading-tight" style={{ color: "var(--text-muted)" }}>
+                {gift.label}
+              </span>
+              <span className="text-[10px] font-semibold" style={{ color: "var(--blue)" }}>
                 ${totalPrice(gift)} {gift.priceAsset}
               </span>
             </button>
@@ -112,7 +127,14 @@ export function GiftPanel({
         ref={buttonRef}
         onClick={() => setOpen((o) => !o)}
         disabled={disabled}
-        className="flex-shrink-0 w-8 h-8 text-gray-400 hover:text-indigo-500 disabled:text-gray-200 disabled:cursor-not-allowed rounded-full flex items-center justify-center transition-colors"
+        className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-colors disabled:cursor-not-allowed"
+        style={{ color: open ? "var(--blue)" : "var(--text-muted)" }}
+        onMouseEnter={(e) => {
+          if (!disabled) (e.currentTarget as HTMLButtonElement).style.color = "var(--blue)";
+        }}
+        onMouseLeave={(e) => {
+          if (!open) (e.currentTarget as HTMLButtonElement).style.color = "var(--text-muted)";
+        }}
         title="Regalos"
       >
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
