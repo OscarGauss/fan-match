@@ -25,14 +25,14 @@ export function ChatInput({
   const handleSend = async () => {
     const trimmed = value.trim();
     if (!trimmed || sending || disabled || !canSend) return;
+    setValue("");
+    onSlowModeSent?.();
+    inputRef.current?.focus();
     setSending(true);
     try {
       await onSend(trimmed);
-      setValue("");
-      onSlowModeSent?.();
     } finally {
       setSending(false);
-      inputRef.current?.focus();
     }
   };
 

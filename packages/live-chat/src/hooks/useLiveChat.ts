@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import Ably from "ably";
-import type { ChatMessage, GiftDefinition, GiftEvent, ReactionDefinition, ReactionEvent, RoomRole } from "../types";
+import type { ChatMessage, ChatUser, GiftDefinition, GiftEvent, ReactionDefinition, ReactionEvent, RoomRole } from "../types";
 
 interface UseLiveChatOptions {
   roomId: string;
@@ -32,6 +32,12 @@ export function useLiveChat({
 
   const ablyRef = useRef<Ably.Realtime | null>(null);
   const channelRef = useRef<Ably.RealtimeChannel | null>(null);
+  // Populated from history/Ably — used to build optimistic messages
+  const currentUserRef = useRef<ChatUser | null>(null);
+  // Keep reactions accessible inside callbacks without stale closure
+  const reactionsRef = useRef<ReactionDefinition[]>([]);
+
+  useEffect(() => { reactionsRef.current = reactions; }, [reactions]);
 
   // ----- Ably connection -----
   useEffect(() => {
@@ -55,9 +61,18 @@ export function useLiveChat({
 
     channel.subscribe("message.new", (msg) => {
       const message = msg.data as ChatMessage;
+      // Capture current user from their own confirmed messages
+      if (message.user.walletAddress === walletAddress) {
+        currentUserRef.current = message.user;
+      }
       setMessages((prev) => {
-        // deduplicate
-        if (prev.some((m) => m.id === message.id)) return prev;
+        const idx = prev.findIndex((m) => m.id === message.id);
+        if (idx !== -1) {
+          // Replace optimistic/pending entry with confirmed server message
+          const next = [...prev];
+          next[idx] = message;
+          return next;
+        }
         return [...prev, message];
       });
     });
@@ -104,7 +119,12 @@ export function useLiveChat({
 
     fetch(`${apiBaseUrl}/rooms/${roomId}/messages`)
       .then((r) => r.json())
-      .then((data: ChatMessage[]) => setMessages(data))
+      .then((data: ChatMessage[]) => {
+        setMessages(data);
+        // Seed currentUser from history so first optimistic message has correct avatar
+        const mine = [...data].reverse().find((m) => m.user.walletAddress === walletAddress);
+        if (mine) currentUserRef.current = mine.user;
+      })
       .catch(console.error);
   }, [roomId, apiBaseUrl]);
 
@@ -141,11 +161,35 @@ export function useLiveChat({
   // ----- Actions -----
   const sendMessage = useCallback(
     async (content: string): Promise<void> => {
-      await fetch(`${apiBaseUrl}/rooms/${roomId}/messages`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content, walletAddress }),
-      });
+      const tempId = crypto.randomUUID();
+      const optimistic: ChatMessage = {
+        id: tempId,
+        content,
+        type: "text",
+        roomId,
+        createdAt: new Date().toISOString(),
+        isDeleted: false,
+        pending: true,
+        user: currentUserRef.current ?? {
+          id: "",
+          username: null,
+          walletAddress,
+          avatarColor: "#6366f1",
+        },
+      };
+
+      setMessages((prev) => [...prev, optimistic]);
+
+      try {
+        await fetch(`${apiBaseUrl}/rooms/${roomId}/messages`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content, walletAddress, clientMsgId: tempId }),
+        });
+      } catch {
+        // Network error — remove optimistic message
+        setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      }
     },
     [apiBaseUrl, roomId, walletAddress]
   );
@@ -185,11 +229,37 @@ export function useLiveChat({
 
   const sendReaction = useCallback(
     async (reactionSlug: string): Promise<void> => {
-      await fetch(`${apiBaseUrl}/rooms/${roomId}/reactions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ walletAddress, reactionSlug }),
-      });
+      const reaction = reactionsRef.current.find((r) => r.slug === reactionSlug);
+      if (!reaction) return;
+
+      const tempId = crypto.randomUUID();
+      const optimistic: ChatMessage = {
+        id: tempId,
+        content: reaction.emoji,
+        type: "reaction",
+        roomId,
+        createdAt: new Date().toISOString(),
+        isDeleted: false,
+        pending: true,
+        user: currentUserRef.current ?? {
+          id: "",
+          username: null,
+          walletAddress,
+          avatarColor: "#6366f1",
+        },
+      };
+
+      setMessages((prev) => [...prev, optimistic]);
+
+      try {
+        await fetch(`${apiBaseUrl}/rooms/${roomId}/reactions`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ walletAddress, reactionSlug, clientMsgId: tempId }),
+        });
+      } catch {
+        setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      }
     },
     [apiBaseUrl, roomId, walletAddress]
   );

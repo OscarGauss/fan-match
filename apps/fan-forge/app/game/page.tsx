@@ -257,7 +257,10 @@ function GamePageInner() {
           return {
             ...prev,
             agents: {
-              red: { ...prev.agents.red, usdcReceived: red.balance ?? prev.agents.red.usdcReceived },
+              red: {
+                ...prev.agents.red,
+                usdcReceived: red.balance ?? prev.agents.red.usdcReceived,
+              },
               blue: {
                 ...prev.agents.blue,
                 usdcReceived: blue.balance ?? prev.agents.blue.usdcReceived,
@@ -478,7 +481,8 @@ function GamePageInner() {
           className="flex flex-col overflow-hidden border-r"
           style={{ flex: '65 65 0%', borderColor: 'var(--border)' }}
         >
-          <div className="flex-1 overflow-hidden border-b" style={{ borderColor: 'var(--border)' }}>
+          <div className="flex-1 overflow-hidden border-b" style={{ borderColor: 'var(--border)', position: 'relative' }}>
+            <GiftOverlay roomId={roomId} walletAddress={walletAddress} apiBaseUrl={CHAT_API} />
             <MatchCanvas
               matchState={matchState}
               onGoal={handleGoal}
@@ -536,11 +540,6 @@ function GamePageInner() {
                     className="absolute inset-0"
                   >
                     <div className="relative">
-                      <GiftOverlay
-                        roomId={roomId}
-                        walletAddress={walletAddress}
-                        apiBaseUrl={CHAT_API}
-                      />
                       <LiveChat
                         roomId={roomId}
                         walletAddress={walletAddress}

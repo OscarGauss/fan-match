@@ -39,7 +39,11 @@ export async function POST(
 ) {
   const { roomId } = await params;
   const body = await request.json();
-  const { content, walletAddress } = body as { content?: string; walletAddress?: string };
+  const { content, walletAddress, clientMsgId } = body as {
+    content?: string;
+    walletAddress?: string;
+    clientMsgId?: string;
+  };
 
   if (!content?.trim() || !walletAddress) {
     return Response.json({ error: "content and walletAddress are required" }, { status: 400 });
@@ -59,15 +63,36 @@ export async function POST(
     return Response.json({ error: "Room not found or inactive" }, { status: 404 });
   }
 
+  // Use client-provided ID if valid UUID (enables optimistic UI dedup), else generate one
+  const isValidUUID = (s: string) =>
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(s);
+  const messageId =
+    clientMsgId && isValidUUID(clientMsgId) ? clientMsgId : crypto.randomUUID();
+  const now = new Date();
+
+  // Publish to Ably immediately — don't await so subscribers see it before DB write finishes
+  publishToRoom(roomId, "message.new", {
+    id: messageId,
+    content: content.trim(),
+    type: "text",
+    roomId,
+    userId: user.id,
+    createdAt: now.toISOString(),
+    isDeleted: false,
+    user: {
+      id: user.id,
+      username: user.username,
+      walletAddress: user.walletAddress,
+      avatarColor: user.avatarColor,
+    },
+  });
+
   const message = await prisma.message.create({
-    data: { content: content.trim(), roomId, userId: user.id },
+    data: { id: messageId, content: content.trim(), roomId, userId: user.id, createdAt: now },
     include: {
       user: { select: { id: true, username: true, walletAddress: true, avatarColor: true } },
     },
   });
-
-  // Publish to Ably for real-time delivery
-  await publishToRoom(roomId, "message.new", message);
 
   return Response.json(message, { status: 201 });
 }

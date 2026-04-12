@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
-import Ably from "ably";
 import { prisma } from "@/lib/prisma";
+import { publishToRoom } from "@/lib/ably-server";
 
 // GET /api/rooms/[roomId]/reactions — list enabled reactions for this room
 // Auto-creates configs for any catalog items the room is missing (default: enabled).
@@ -47,9 +47,10 @@ export async function POST(
 ) {
   const { roomId } = await params;
   const body = await request.json();
-  const { walletAddress, reactionSlug } = body as {
+  const { walletAddress, reactionSlug, clientMsgId } = body as {
     walletAddress?: string;
     reactionSlug?: string;
+    clientMsgId?: string;
   };
 
   if (!walletAddress || !reactionSlug) {
@@ -70,15 +71,14 @@ export async function POST(
     return Response.json({ error: "User not found" }, { status: 404 });
   }
 
-  const key = process.env.ABLY_API_KEY;
-  if (!key) {
-    return Response.json({ error: "Ably not configured" }, { status: 500 });
-  }
+  // Use client-provided ID if valid UUID (enables optimistic UI dedup), else generate one
+  const isValidUUID = (s: string) =>
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(s);
+  const messageId =
+    clientMsgId && isValidUUID(clientMsgId) ? clientMsgId : crypto.randomUUID();
+  const now = new Date();
 
-  const ably = new Ably.Rest({ key });
-  const channel = ably.channels.get(`chat:${roomId}`);
-
-  await channel.publish("reaction.sent", {
+  const reactionPayload = {
     reactionSlug: config.reaction.slug,
     emoji: config.reaction.emoji,
     label: config.reaction.label,
@@ -87,6 +87,38 @@ export async function POST(
       walletAddress: user.walletAddress,
       username: user.username,
       avatarColor: user.avatarColor,
+    },
+  };
+
+  const messagePayload = {
+    id: messageId,
+    content: config.reaction.emoji,
+    type: "reaction",
+    roomId,
+    userId: user.id,
+    createdAt: now.toISOString(),
+    isDeleted: false,
+    user: {
+      id: user.id,
+      username: user.username,
+      walletAddress: user.walletAddress,
+      avatarColor: user.avatarColor,
+    },
+  };
+
+  // Publish both events without awaiting — instant delivery
+  publishToRoom(roomId, "reaction.sent", reactionPayload);
+  publishToRoom(roomId, "message.new", messagePayload);
+
+  // Persist reaction as a message in DB
+  await prisma.message.create({
+    data: {
+      id: messageId,
+      content: config.reaction.emoji,
+      type: "reaction",
+      roomId,
+      userId: user.id,
+      createdAt: now,
     },
   });
 

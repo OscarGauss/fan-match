@@ -27,40 +27,53 @@ export function FloatingGift({ item, viewerWallet }: FloatingGiftProps) {
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [holdMs]);
 
-  const [leftPct] = useState(() => 10 + Math.random() * 80);
-  const displayName = item.user.username ?? `${item.user.walletAddress.slice(0, 6)}…`;
+  // Random horizontal position — wider spread for reactions
+  const [leftPct] = useState(() =>
+    isReaction ? 5 + Math.random() * 90 : 10 + Math.random() * 80
+  );
+  // Reaction: random peak height between 45-75%, keeps rising while fading
+  const [reactionPeak] = useState(() => 45 + Math.random() * 30);
+  const reactionFinal = reactionPeak + 12;
 
-  const bottom =
-    phase === "idle"   ? "2%"  :
-    phase === "rising" ? (isReaction ? "55%" : "40%") :
-                         (isReaction ? "75%" : "70%");
+  const displayName = item.user.username ?? `${item.user.walletAddress.slice(0, 6)}…`;
 
   const opacity = phase === "idle" ? 0 : phase === "fading" ? 0 : 1;
 
-  // Reactions: smaller, faster, no label card — just emoji + tiny name
+  // Reactions: rise from off-screen bottom, large emoji, random spread
   if (isReaction) {
-    const scale =
-      phase === "idle"   ? "scale-75"    :
-      phase === "rising" ? "scale-100"   :
-                           "scale-110";
+    const bottom =
+      phase === "idle"   ? "-10%"
+      : phase === "rising" ? `${reactionPeak}%`
+      :                      `${reactionFinal}%`;
+
+    const scaleVal =
+      phase === "idle"   ? "scale(0.4)"
+      : phase === "rising" ? "scale(1)"
+      :                      "scale(1.15)";
+
+    const transitionVal =
+      phase === "idle"
+        ? "none"
+        : phase === "rising"
+        ? "bottom 700ms cubic-bezier(0.22, 1, 0.36, 1), opacity 250ms ease, transform 600ms cubic-bezier(0.34, 1.56, 0.64, 1)"
+        : `bottom ${FADE_MS}ms ease-in, opacity ${FADE_MS}ms ease-in, transform ${FADE_MS}ms ease-in`;
 
     return (
       <div
-        className={`absolute flex flex-col items-center gap-0.5 pointer-events-none select-none
-          transition-all duration-[500ms] ease-out`}
+        className="absolute flex flex-col items-center gap-1 pointer-events-none select-none"
         style={{
           left: `${leftPct}%`,
           bottom,
           opacity,
-          transform: `translateX(-50%)`,
-          transitionDuration: phase === "fading" ? `${FADE_MS}ms` : "500ms",
+          transform: `translateX(-50%) ${scaleVal}`,
+          transition: transitionVal,
         }}
       >
-        <span className={`text-3xl drop-shadow leading-none transition-transform duration-500 ${scale}`}>
+        <span className="text-6xl drop-shadow-lg leading-none">
           {item.emoji}
         </span>
         {item.showLabel && (
-          <span className="text-[9px] text-white/70 font-medium drop-shadow">
+          <span className="text-[10px] text-white/80 font-semibold drop-shadow">
             {isSender ? "Tú" : displayName}
           </span>
         )}
@@ -69,6 +82,11 @@ export function FloatingGift({ item, viewerWallet }: FloatingGiftProps) {
   }
 
   // Gifts
+  const giftBottom =
+    phase === "idle"   ? "2%"  :
+    phase === "rising" ? "40%" :
+                         "70%";
+
   const emojiSize = isSender ? "text-6xl" : "text-4xl";
   const scale =
     phase === "idle"   ? "scale-90"     :
@@ -80,7 +98,7 @@ export function FloatingGift({ item, viewerWallet }: FloatingGiftProps) {
       className="absolute flex flex-col items-center gap-1 pointer-events-none select-none transition-all ease-out"
       style={{
         left: `${leftPct}%`,
-        bottom,
+        bottom: giftBottom,
         opacity,
         transform: "translateX(-50%)",
         transitionDuration: phase === "fading" ? `${FADE_MS}ms` : "700ms",

@@ -8,10 +8,13 @@ export interface ChatUser {
 export interface ChatMessage {
   id: string;
   content: string;
+  type?: "text" | "reaction";
   user: ChatUser;
   roomId: string;
   createdAt: string;
   isDeleted?: boolean;
+  /** True while the message is optimistic (not yet confirmed by Ably) */
+  pending?: boolean;
 }
 
 export interface GiftDefinition {

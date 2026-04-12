@@ -73,6 +73,7 @@ model RoomMember {
 model Message {
   id        String    @id @default(cuid())
   content   String
+  type      String    @default("text") // "text" | "reaction"
   isDeleted Boolean   @default(false)
   deletedAt DateTime?
   createdAt DateTime  @default(now())

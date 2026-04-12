@@ -34,6 +34,7 @@ export function MessageBubble({
   return (
     <div
       className="group flex items-start gap-2 px-3 py-1.5 rounded-lg transition-colors"
+      style={{ opacity: message.pending ? 0.6 : 1 }}
       onMouseEnter={(e) => {
         (e.currentTarget as HTMLDivElement).style.background = "var(--bg-surface)";
       }}
@@ -65,9 +66,13 @@ export function MessageBubble({
             {time}
           </span>
         </div>
-        <p className="text-sm break-words leading-snug" style={{ color: "var(--text-primary)" }}>
-          {message.content}
-        </p>
+        {message.type === "reaction" ? (
+          <span className="text-2xl leading-none">{message.content}</span>
+        ) : (
+          <p className="text-sm break-words leading-snug" style={{ color: "var(--text-primary)" }}>
+            {message.content}
+          </p>
+        )}
       </div>
 
       {/* Mod actions */}
