@@ -1,8 +1,14 @@
+[phases.setup]
+nixPkgs = ["nodejs_22", "pnpm-9_x", "openssl", "curl"]
+
+[phases.install]
+cmds = ["./notify.sh INSTALL pnpm i --frozen-lockfile"]
+
 [phases.build]
 cmds = [
-  "pnpm --filter chat-api exec prisma generate",
-  "pnpm --filter chat-api run build"
+  "./notify.sh PRISMA pnpm --filter chat-api exec prisma generate",
+  "./notify.sh BUILD pnpm --filter chat-api run build"
 ]
 
 [start]
-cmd = "cd apps/chat-api && pnpm start"
+cmd = "./notify.sh RUNTIME cd apps/chat-api && pnpm start"

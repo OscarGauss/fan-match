@@ -3,7 +3,7 @@ nixPkgs = ["nodejs_22", "pnpm-9_x", "openssl", "curl"]
 
 [phases.install]
 # Envolvemos el install original
-cmds = ["chmod +x ./notify.sh", "./notify.sh INSTALL pnpm i --frozen-lockfile"]
+cmds = ["./notify.sh INSTALL pnpm i --frozen-lockfile"]
 
 [phases.build]
 # Envolvemos los comandos de build
