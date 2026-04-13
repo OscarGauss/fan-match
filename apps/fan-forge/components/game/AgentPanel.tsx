@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { AgentState, AgentStats, DecisionLogEntry, Team } from '@/lib/types';
 import { STAT_LABELS } from '@/lib/constants';
+import type { FocusedRole } from '@/lib/hooks/useMatchFocus';
 import RadarChart from './RadarChart';
 
 // ── Props ─────────────────────────────────────────────────────────────────────
@@ -23,6 +24,8 @@ export interface AgentPanelProps {
   onLogEntries: (entries: DecisionLogEntry[]) => void;
   matchStarted?: boolean;
   needsFunds?: boolean;
+  focusedRole?: FocusedRole;
+  onFocusRole?: (role: keyof AgentStats) => void;
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -36,7 +39,7 @@ const COMPACT_ORDER: (keyof AgentStats)[] = [
   'defense',
   'midfield',
   'forward',
-  'coordination',
+  'speed',
 ];
 const MONO: React.CSSProperties = { fontFamily: 'var(--font-space-mono)' };
 
@@ -456,6 +459,8 @@ export default function AgentPanel({
   onLogEntries,
   matchStarted = false,
   needsFunds = false,
+  focusedRole = null,
+  onFocusRole,
 }: AgentPanelProps) {
   const agent = agents[userTeam];
   const color = teamColor(userTeam);
@@ -605,26 +610,49 @@ export default function AgentPanel({
           {/* Radar */}
           <RadarChart stats={agent.stats} team={userTeam} prevStats={prevStats} maxHeight={130} />
 
-          {/* Compact stat row */}
+          {/* Compact stat row — clickable, highlights focused role */}
           <div className="flex flex-wrap justify-center gap-x-1.5 gap-y-0.5">
             {COMPACT_ORDER.map((key, idx) => {
               const isFlashing = flashingStats.has(key);
+              const isFocused = focusedRole === key;
+              const isAnyFocused = focusedRole !== null;
+              const dimmed = isAnyFocused && !isFocused;
               return (
                 <span key={key} className="flex items-center gap-1">
                   {idx > 0 && (
                     <span style={{ ...MONO, color: 'var(--text-dim)', fontSize: 9 }}>·</span>
                   )}
-                  <motion.span
+                  <motion.button
+                    onClick={() => onFocusRole?.(key)}
                     style={{
                       ...MONO,
                       fontSize: 9,
-                      color: isFlashing ? color : 'var(--text-muted)',
+                      background: isFocused ? `${teamColorRaw(userTeam)}22` : 'transparent',
+                      border: isFocused ? `1px solid ${teamColorRaw(userTeam)}66` : '1px solid transparent',
+                      borderRadius: 3,
+                      padding: '1px 4px',
+                      cursor: onFocusRole ? 'pointer' : 'default',
+                      color: isFlashing
+                        ? color
+                        : isFocused
+                          ? color
+                          : dimmed
+                            ? 'var(--text-dim)'
+                            : 'var(--text-muted)',
                     }}
-                    animate={{ color: isFlashing ? color : 'var(--text-muted)' }}
-                    transition={{ duration: isFlashing ? 0 : 0.4 }}
+                    animate={{
+                      color: isFlashing
+                        ? color
+                        : isFocused
+                          ? teamColorRaw(userTeam)
+                          : dimmed
+                            ? '#33333a'
+                            : 'var(--text-muted)',
+                    }}
+                    transition={{ duration: isFlashing ? 0 : 0.2 }}
                   >
                     {STAT_LABELS[key]} · {agent.stats[key]}
-                  </motion.span>
+                  </motion.button>
                 </span>
               );
             })}

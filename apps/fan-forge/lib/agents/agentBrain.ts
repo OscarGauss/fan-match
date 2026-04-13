@@ -10,7 +10,7 @@ const STAT_KEYS: StatKey[] = [
   'defense',
   'midfield',
   'forward',
-  'coordination',
+  'speed',
 ];
 
 // ── Fallbacks ─────────────────────────────────────────────────────────────────
@@ -127,13 +127,13 @@ export async function decideUpgrade(
     const text = await callAnthropic(
       `You are ${agentName}, an autonomous AI foosball agent. You just received USDC from fans. ` +
       `Decide which stat to upgrade to maximize winning chances. Be strategic.\n` +
-      `Stats: goalkeeper, defense, midfield, forward, coordination (all 0-100).\n` +
+      `Stats: goalkeeper, defense, midfield, forward, speed (all 0-100).\n` +
       `Upgrade amount: 5-20.\n` +
       `Respond ONLY with valid JSON, no markdown:\n` +
-      `{"stat":"goalkeeper|defense|midfield|forward|coordination","reasoning":"max 80 chars","upgradeAmount":number}`,
+      `{"stat":"goalkeeper|defense|midfield|forward|speed","reasoning":"max 80 chars","upgradeAmount":number}`,
       `Score ${score.red}-${score.blue}, time left ${formatTime(timeRemainingMs)}.\n` +
       `Stats: GK=${currentStats.goalkeeper} DEF=${currentStats.defense} ` +
-      `MID=${currentStats.midfield} FWD=${currentStats.forward} COO=${currentStats.coordination}.\n` +
+      `MID=${currentStats.midfield} FWD=${currentStats.forward} SPD=${currentStats.speed}.\n` +
       `Received: ${usdcReceived} USDC. Decide.`,
       150,
     );

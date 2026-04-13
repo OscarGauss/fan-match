@@ -2,6 +2,7 @@
 
 import { useRef, useEffect, useState } from 'react';
 import type { MatchState, Team, AgentStats } from '@/lib/types';
+import type { FocusedRole } from '@/lib/hooks/useMatchFocus';
 
 // ── Public types ──────────────────────────────────────────────────────────────
 
@@ -17,6 +18,7 @@ export interface MatchCanvasProps {
   onGoal: (team: Team) => void;
   onFeedEntry?: (entry: FeedEntry) => void;
   paused?: boolean;
+  focusedRole?: FocusedRole;
 }
 
 // ── Rod layout (left = red goal → right = blue goal) ─────────────────────────
@@ -85,7 +87,7 @@ function playerOffsets(count: number, fieldH: number): number[] {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export default function MatchCanvas({ matchState, onGoal, onFeedEntry, paused = false }: MatchCanvasProps) {
+export default function MatchCanvas({ matchState, onGoal, onFeedEntry, paused = false, focusedRole = null }: MatchCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number>(0);
@@ -97,6 +99,8 @@ export default function MatchCanvas({ matchState, onGoal, onFeedEntry, paused = 
   const onFeedRef = useRef(onFeedEntry);
   const pausedRef = useRef(paused);
   useEffect(() => { pausedRef.current = paused; }, [paused]);
+  const focusedRoleRef = useRef(focusedRole);
+  useEffect(() => { focusedRoleRef.current = focusedRole; }, [focusedRole]);
   useEffect(() => {
     msRef.current = matchState;
   }, [matchState]);
@@ -314,12 +318,18 @@ export default function MatchCanvas({ matchState, onGoal, onFeedEntry, paused = 
     }
 
     function drawRods(f: Field, ms: MatchState) {
+      const focused = focusedRoleRef.current;
       ROD_DEFS.forEach((def, i) => {
         const rx = f.x + def.xFrac * f.w;
         const rodY = phys.current.rodY[i];
         const stat = ms.agents[def.team].stats[def.role];
         const tc = def.team === 'red' ? RED : BLUE;
         const boosted = ms.agents[def.team].activeBoost;
+        const isFocused = focused === null || def.role === focused;
+        const dimAlpha = isFocused ? 1 : 0.18;
+
+        ctx.save();
+        ctx.globalAlpha = dimAlpha;
 
         // Rod line
         ctx.strokeStyle = 'rgba(255,255,255,0.1)';
@@ -339,7 +349,17 @@ export default function MatchCanvas({ matchState, onGoal, onFeedEntry, paused = 
           ctx.stroke();
         }
 
-        // Players — width grows with the role's stat (e.g. defense → wider DEF players)
+        // Focused role gets an extra highlight ring on the rod
+        if (focused !== null && isFocused) {
+          ctx.strokeStyle = def.team === 'red' ? 'rgba(255,77,77,0.55)' : 'rgba(77,159,255,0.55)';
+          ctx.lineWidth = 10;
+          ctx.beginPath();
+          ctx.moveTo(rx, f.y);
+          ctx.lineTo(rx, f.y + f.h);
+          ctx.stroke();
+        }
+
+        // Players — width grows with the role's stat
         const offsets = playerOffsets(def.count, f.h);
         const rw = BASE_PLR_RW + (stat / 100) * PLR_RW_SCALE;
 
@@ -347,12 +367,14 @@ export default function MatchCanvas({ matchState, onGoal, onFeedEntry, paused = 
           const py = clamp(rodY + off, f.y + BASE_PLR_RH + 2, f.y + f.h - BASE_PLR_RH - 2);
           ctx.fillStyle = tc;
           ctx.shadowColor = tc;
-          ctx.shadowBlur = 5;
+          ctx.shadowBlur = focused !== null && isFocused ? 14 : 5;
           ctx.beginPath();
           ctx.ellipse(rx, py, rw, BASE_PLR_RH, 0, 0, Math.PI * 2);
           ctx.fill();
           ctx.shadowBlur = 0;
         });
+
+        ctx.restore();
       });
     }
 
@@ -421,8 +443,8 @@ export default function MatchCanvas({ matchState, onGoal, onFeedEntry, paused = 
       // Rod tracking
       ROD_DEFS.forEach((def, i) => {
         const stat = ms.agents[def.team].stats[def.role];
-        const coord = ms.agents[def.team].stats.coordination;
-        // Role stat → base tracking speed; coordination → global speed multiplier (velocidad)
+        const coord = ms.agents[def.team].stats.speed;
+        // Role stat → base tracking speed; speed → global speed multiplier
         const roleFactor = 0.28 + (stat / 100) * 0.72;
         const coordMult = COORD_SPD_MIN + (coord / 100) * (COORD_SPD_MAX - COORD_SPD_MIN);
         const speedFactor = roleFactor * coordMult;

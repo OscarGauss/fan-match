@@ -18,6 +18,7 @@ import {
 } from '@/lib/constants';
 import { GameEngine } from '@/lib/gameEngine';
 import type { DecisionLogEntry, GridEventState, MatchState, Team } from '@/lib/types';
+import { useMatchFocus } from '@/lib/hooks/useMatchFocus';
 import { GiftOverlay, LiveChat } from '@fan-match/live-chat';
 import { usePollar, WalletButton } from '@pollar/react';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -116,6 +117,9 @@ function GamePageInner() {
   const [agentNeedsFunds, setAgentNeedsFunds] = useState<{ red: boolean; blue: boolean }>({ red: false, blue: false });
   // Mirror of matchState for use inside callbacks without stale closures
   const matchStateRef = useRef<MatchState | null>(null);
+
+  // ── Role focus (drives canvas highlight + stat row) ──────────────────────
+  const { focusedRole, toggleRole } = useMatchFocus();
 
   if (!engineRef.current) {
     engineRef.current = new GameEngine('GAGENTR3DXYZ', 'GAGENTB7WXYZ');
@@ -744,6 +748,7 @@ function GamePageInner() {
               onGoal={handleGoal}
               onFeedEntry={handleFeedEntry}
               paused={!matchStarted || matchState.status === 'finished'}
+              focusedRole={focusedRole}
             />
             {!matchStarted && isOwner && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -886,6 +891,8 @@ function GamePageInner() {
               onLogEntries={handleLogEntries}
               matchStarted={matchStarted && matchState.status !== 'finished'}
               needsFunds={agentNeedsFunds[userTeam]}
+              focusedRole={focusedRole}
+              onFocusRole={toggleRole}
             />
           </div>
 

@@ -5,18 +5,18 @@ import type { MatchState, Team } from '@/lib/types';
 
 /**
  * Extracts agent stats for a given team from matchState.
- * `coordination` doubles as the speed/velocity stat — it drives
- * how fast all rods move on the canvas.
+ * `speed` drives how fast all rods move on the canvas
+ * and gets boosted when the team wins a Grid Event.
  *
  * Usage:
- *   const { goalkeeper, defense, midfield, forward, coordination } = useAgentStats(matchState, 'red');
+ *   const { goalkeeper, defense, midfield, forward, speed } = useAgentStats(matchState, 'red');
  */
 export interface AgentStatView {
   goalkeeper: number;   // arquero  — GK width
   defense: number;      // defensa  — DEF width
   midfield: number;     // mediocamp — MID width
   forward: number;      // ataque   — FWD width
-  coordination: number; // velocidad — all-rod speed multiplier
+  speed: number;        // velocidad — all-rod speed multiplier
 }
 
 export function useAgentStats(matchState: MatchState, team: Team): AgentStatView {
@@ -27,9 +27,9 @@ export function useAgentStats(matchState: MatchState, team: Team): AgentStatView
       defense: stats.defense,
       midfield: stats.midfield,
       forward: stats.forward,
-      coordination: stats.coordination,
+      speed: stats.speed,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [stats.goalkeeper, stats.defense, stats.midfield, stats.forward, stats.coordination, team],
+    [stats.goalkeeper, stats.defense, stats.midfield, stats.forward, stats.speed, team],
   );
 }

@@ -24,12 +24,12 @@ const VALUE_INSET = 10; // px toward center from data vertex
 const START_DEG = 270; // top
 const STEP_DEG = 72; // 360 / 5
 
-// Axis order clockwise from top: GK → DEF → FWD → COO → MID
+// Axis order clockwise from top: GK → DEF → FWD → SPD → MID
 const AXIS_ORDER: (keyof AgentStats)[] = [
   'goalkeeper',
   'defense',
   'forward',
-  'coordination',
+  'speed',
   'midfield',
 ];
 

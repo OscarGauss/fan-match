@@ -18,7 +18,7 @@ interface AgentStats {
   defense: number;
   midfield: number;
   forward: number;
-  coordination: number;
+  speed: number;
 }
 
 interface Match {
@@ -62,7 +62,7 @@ const TEAM_STAT_ROWS: { key: keyof AgentStats; label: string }[] = [
   { key: 'defense', label: 'DEF' },
   { key: 'midfield', label: 'MID' },
   { key: 'forward', label: 'FWD' },
-  { key: 'coordination', label: 'COO' },
+  { key: 'speed', label: 'SPD' },
 ];
 
 function TeamCard({
@@ -337,7 +337,12 @@ function HistoryModal({ match, onClose }: { match: Match; onClose: () => void })
 // ── LiveMatchCard ─────────────────────────────────────────────────────────────
 
 function LiveMatchCard({ match, isOwner, onSelect }: { match: Match; isOwner: boolean; onSelect: () => void }) {
-  const elapsed = match.startedAt ? Date.now() - new Date(match.startedAt).getTime() : 0;
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const elapsed = match.startedAt ? now - new Date(match.startedAt).getTime() : 0;
   const rem = Math.max(0, MATCH_DURATION_MS - elapsed);
   const s = Math.ceil(rem / 1000);
   const timer = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;

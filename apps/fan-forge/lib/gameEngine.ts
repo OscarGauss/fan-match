@@ -10,7 +10,7 @@ import {
   STAT_MAX,
   STAT_UPGRADE_AMOUNT,
   BASE_STAT_VALUE,
-  COORDINATION_BOOST_PER_WIN,
+  SPEED_BOOST_PER_WIN,
   GRID_TARGETS,
 } from './constants';
 import { decideUpgrade } from './agentLogic';
@@ -33,7 +33,7 @@ function makeStats(): AgentStats {
     defense: BASE_STAT_VALUE,
     midfield: BASE_STAT_VALUE,
     forward: BASE_STAT_VALUE,
-    coordination: BASE_STAT_VALUE,
+    speed: BASE_STAT_VALUE,
   };
 }
 
@@ -185,7 +185,7 @@ export class GameEngine {
       defense: 'defense positioning',
       midfield: 'midfield speed',
       forward: 'forward power',
-      coordination: 'team coordination',
+      speed: 'team speed',
     };
 
     const scoreStr = `score ${this.state.score.red}-${this.state.score.blue}`;
@@ -242,8 +242,8 @@ export class GameEngine {
       stats[key] = Math.min(STAT_MAX, Math.round(stats[key] * AGENT_BOOST_MULTIPLIER));
     }
 
-    // Grid Event win also boosts coordination
-    stats.coordination = Math.min(STAT_MAX, stats.coordination + COORDINATION_BOOST_PER_WIN);
+    // Grid Event win also boosts speed
+    stats.speed = Math.min(STAT_MAX, stats.speed + SPEED_BOOST_PER_WIN);
 
     agent.activeBoost = true;
     agent.boostExpiresAt = this.state.elapsedMs + AGENT_BOOST_DURATION_MS;

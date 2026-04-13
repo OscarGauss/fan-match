@@ -22,7 +22,7 @@ export const STAT_MIN = 0;
 export const STAT_MAX = 100;
 export const STAT_UPGRADE_AMOUNT = 10;
 export const BASE_STAT_VALUE = 50;
-export const COORDINATION_BOOST_PER_WIN = 15;
+export const SPEED_BOOST_PER_WIN = 15;
 
 /**
  * USDC cost to upgrade a stat based on its current value.
@@ -40,7 +40,7 @@ export const STAT_LABELS = {
   defense: 'DEF',
   midfield: 'MID',
   forward: 'FWD',
-  coordination: 'COO',
+  speed: 'SPD',
 } as const satisfies Record<string, string>;
 
 // ── Grid Event target shapes ─────────────────────────────────────────────────
