@@ -31,25 +31,7 @@ Each agent has five upgradeable stats that directly affect gameplay on the 2D ca
 
 When a fan sends USDC to an agent's Stellar wallet, this cycle triggers immediately:
 
-```
-Fan sends USDC
-      ↓
-Balance detected (Horizon polling every 15s)
-      ↓
-runAgentThink() [client]
-      ↓
-POST /api/agent/think [server]
-  ├── decideUpgrade() → Claude API
-  └── agentSendUSDC() → Stellar SDK
-      ↓
-Upgrade applied to GameEngine
-Stats saved to DB via PATCH /api/matches/[matchId]
-      ↓
-MatchCanvas re-renders
-(player width + speed updated in RAF loop)
-      ↓
-If still enough USDC → upgrade again (1.5s chain)
-```
+![img.png](img.png)
 
 If the agent has no funds, it generates a deterministic thought (e.g. _"tied — midfield at 50 needs work, send USDC"_) without any API call — zero cost.
 
@@ -120,7 +102,7 @@ Claude is only called when the agent has funds to spend — idle thoughts use a 
 
 ## Architecture
 
-![img.png](img.png)
+
 
 ```
 ┌─────────────────────────────────────────────┐
