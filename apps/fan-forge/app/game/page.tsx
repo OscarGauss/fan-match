@@ -221,7 +221,8 @@ function GamePageInner() {
   const [decisionLog, setDecisionLog] = useState<DecisionLogEntry[]>([]);
   const [feedEntries, setFeedEntries] = useState<FeedEntry[]>([]);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
-  const [userTeam, setUserTeam] = useState<Team>('red');
+  const teamParam = searchParams.get('team') as Team | null;
+  const [userTeam, setUserTeam] = useState<Team>(teamParam === 'blue' ? 'blue' : 'red');
   const [agentView, setAgentView] = useState<AgentView>('agents');
   const [stakedAmount, setStakedAmount] = useState<number | null>(null);
   const [stakedTeam, setStakedTeam] = useState<Team | null>(null);

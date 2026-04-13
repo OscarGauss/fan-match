@@ -11,6 +11,15 @@ type MatchStatus = 'WAITING' | 'ACTIVE' | 'FINISHED';
 type Tab = 'live' | 'waiting' | 'history';
 
 const MATCH_DURATION_MS = 5 * 60 * 1000;
+const BASE_STAT = 50;
+
+interface AgentStats {
+  goalkeeper: number;
+  defense: number;
+  midfield: number;
+  forward: number;
+  coordination: number;
+}
 
 interface Match {
   id: string;
@@ -21,6 +30,12 @@ interface Match {
   createdAt: string;
   scoreRed: number;
   scoreBlue: number;
+  data?: {
+    agentStats?: {
+      red?: Partial<AgentStats>;
+      blue?: Partial<AgentStats>;
+    };
+  } | null;
 }
 
 function effectiveStatus(match: Match): MatchStatus {
@@ -42,6 +57,14 @@ const MONO: React.CSSProperties = { fontFamily: 'var(--font-space-mono)' };
 
 // ── TeamCard ──────────────────────────────────────────────────────────────────
 
+const TEAM_STAT_ROWS: { key: keyof AgentStats; label: string }[] = [
+  { key: 'goalkeeper', label: 'GK' },
+  { key: 'defense', label: 'DEF' },
+  { key: 'midfield', label: 'MID' },
+  { key: 'forward', label: 'FWD' },
+  { key: 'coordination', label: 'COO' },
+];
+
 function TeamCard({
   team,
   label,
@@ -50,6 +73,7 @@ function TeamCard({
   border,
   matchId,
   ownerWallet,
+  stats,
 }: {
   team: string;
   label: string;
@@ -58,6 +82,7 @@ function TeamCard({
   border: string;
   matchId: string;
   ownerWallet: string;
+  stats?: Partial<AgentStats>;
 }) {
   return (
     <Link
@@ -88,16 +113,25 @@ function TeamCard({
         </div>
 
         <div className="flex flex-col gap-2">
-          {['GK', 'DEF', 'MID', 'FWD'].map((role) => (
-            <div key={role} className="flex items-center gap-2">
-              <span className="w-8 text-[10px] mono" style={{ color: 'var(--text-dim)' }}>
-                {role}
-              </span>
-              <div className="h-1 flex-1 rounded-full" style={{ background: 'var(--border-accent)' }}>
-                <div className="h-full w-1/2 rounded-full" style={{ background: accent, opacity: 0.6 }} />
+          {TEAM_STAT_ROWS.map(({ key, label: role }) => {
+            const val = stats?.[key] ?? BASE_STAT;
+            return (
+              <div key={role} className="flex items-center gap-2">
+                <span className="w-8 text-[10px] mono" style={{ color: 'var(--text-dim)' }}>
+                  {role}
+                </span>
+                <div className="h-1 flex-1 rounded-full" style={{ background: 'var(--border-accent)' }}>
+                  <div
+                    className="h-full rounded-full"
+                    style={{ background: accent, opacity: 0.6, width: `${val}%` }}
+                  />
+                </div>
+                <span className="w-6 text-right text-[10px] mono" style={{ color: 'var(--text-dim)' }}>
+                  {val}
+                </span>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         <button
@@ -708,6 +742,7 @@ export default function LobbyPage() {
               border="var(--red-border)"
               matchId={selectedMatch.id}
               ownerWallet={selectedMatch.ownerWallet}
+              stats={selectedMatch.data?.agentStats?.red}
             />
             <TeamCard
               team="AgentBlue"
@@ -717,6 +752,7 @@ export default function LobbyPage() {
               border="var(--blue-border)"
               matchId={selectedMatch.id}
               ownerWallet={selectedMatch.ownerWallet}
+              stats={selectedMatch.data?.agentStats?.blue}
             />
           </div>
         </div>
