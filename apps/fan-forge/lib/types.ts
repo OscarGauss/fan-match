@@ -42,7 +42,7 @@ export interface GridEventState {
   pixelsLeft: { red: number; blue: number };
 }
 
-export type DecisionType = 'received_funds' | 'analyzing' | 'decision' | 'tx_confirmed';
+export type DecisionType = 'received_funds' | 'analyzing' | 'decision' | 'tx_confirmed' | 'thinking';
 
 export interface DecisionLogEntry {
   timestamp: number;

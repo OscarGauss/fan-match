@@ -158,6 +158,11 @@ export class GameEngine {
     this.state.score = { red, blue };
   }
 
+  /** Restore agent stats directly (e.g. after page refresh from persisted state). */
+  setAgentStats(team: Team, stats: Partial<AgentStats>): void {
+    Object.assign(this.state.agents[team].stats, stats);
+  }
+
   /**
    * Records incoming USDC for a team's agent, triggers the autonomous decision
    * cycle, and upgrades the chosen stat.
@@ -206,6 +211,21 @@ export class GameEngine {
         message: `→ upgrading ${statLabels[statKey]} (${oldValue} → ${agent.stats[statKey]})`,
       },
     ];
+  }
+
+  /**
+   * Applies a specific stat upgrade decided by the AI brain.
+   * Called when the agent autonomously spends its own USDC.
+   */
+  applyStatUpgrade(
+    team: Team,
+    stat: keyof AgentStats,
+    upgradeAmount: number,
+    usdcSpent: number,
+  ): void {
+    const agent = this.state.agents[team];
+    agent.stats[stat] = Math.min(STAT_MAX, agent.stats[stat] + upgradeAmount);
+    agent.usdcReceived = Math.max(0, agent.usdcReceived - usdcSpent);
   }
 
   /**

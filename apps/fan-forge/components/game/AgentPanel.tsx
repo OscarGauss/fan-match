@@ -22,6 +22,7 @@ export interface AgentPanelProps {
   agentPublicKey: string;
   onLogEntries: (entries: DecisionLogEntry[]) => void;
   matchStarted?: boolean;
+  needsFunds?: boolean;
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -130,6 +131,7 @@ function FundSection({
   getClient,
   agentPublicKey,
   onLogEntries,
+  onTxDone,
 }: {
   team: Team;
   onFund: (amount: number) => void;
@@ -137,6 +139,7 @@ function FundSection({
   getClient: () => unknown;
   agentPublicKey: string;
   onLogEntries: (entries: DecisionLogEntry[]) => void;
+  onTxDone?: () => void;
 }) {
   const [value, setValue] = useState(0.1);
   const [txState, setTxState] = useState<TxState>('idle');
@@ -181,6 +184,7 @@ function FundSection({
       setTxState('done');
       onFund(value);
       onLogEntries(data.logEntries ?? []);
+      onTxDone?.();
       setTimeout(() => setTxState('idle'), 1500);
     } catch {
       setTxState('error');
@@ -295,10 +299,13 @@ function SupportChart({ redUsdc, blueUsdc }: { redUsdc: number; blueUsdc: number
     lastSampleRef.current = now;
     const total = redUsdc + blueUsdc;
     const share = total === 0 ? 0.5 : redUsdc / total;
-    setHistory((prev) => {
-      if (Math.abs(prev[prev.length - 1] - share) < 0.003 && prev.length > 1) return prev;
-      return [...prev.slice(-79), share];
-    });
+    const id = setTimeout(() => {
+      setHistory((prev) => {
+        if (Math.abs(prev[prev.length - 1] - share) < 0.003 && prev.length > 1) return prev;
+        return [...prev.slice(-79), share];
+      });
+    }, 0);
+    return () => clearTimeout(id);
   }, [redUsdc, blueUsdc]);
 
   const total = redUsdc + blueUsdc;
@@ -448,6 +455,7 @@ export default function AgentPanel({
   agentPublicKey,
   onLogEntries,
   matchStarted = false,
+  needsFunds = false,
 }: AgentPanelProps) {
   const agent = agents[userTeam];
   const color = teamColor(userTeam);
@@ -455,21 +463,27 @@ export default function AgentPanel({
 
   // ── Live on-chain USDC balance ────────────────────────────────────────────
   const [liveBalance, setLiveBalance] = useState<number | null>(null);
+  const [balanceFetching, setBalanceFetching] = useState(false);
+  const fetchBalanceFnRef = useRef<(() => Promise<void>) | undefined>(undefined);
 
   useEffect(() => {
     if (!userTeam) return;
     let cancelled = false;
 
     async function fetchBalance() {
+      setBalanceFetching(true);
       try {
         const res = await fetch(`/api/agent/balance?agentId=${userTeam}`);
         const data = await res.json();
         if (!cancelled) setLiveBalance(data.balance ?? null);
       } catch {
         // leave previous value
+      } finally {
+        if (!cancelled) setBalanceFetching(false);
       }
     }
 
+    fetchBalanceFnRef.current = fetchBalance;
     fetchBalance();
     const id = setInterval(fetchBalance, 15_000);
     return () => {
@@ -573,7 +587,13 @@ export default function AgentPanel({
               transition={{ duration: 0.35, ease: 'easeOut' }}
               className="flex flex-col items-end"
             >
-              <span className="text-base font-bold leading-none" style={{ ...MONO, color }}>
+              <span className="flex items-center gap-1.5 text-base font-bold leading-none" style={{ ...MONO, color }}>
+                {balanceFetching && (
+                  <span
+                    className="inline-block h-2.5 w-2.5 animate-spin rounded-full border-2"
+                    style={{ borderColor: color, borderTopColor: 'transparent' }}
+                  />
+                )}
                 {liveBalance !== null ? liveBalance.toFixed(2) : agent.usdcReceived.toFixed(2)}
               </span>
               <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
@@ -624,6 +644,41 @@ export default function AgentPanel({
             </motion.div>
           )}
 
+          {/* Needs funds alert */}
+          <AnimatePresence>
+            {needsFunds && matchStarted && (
+              <motion.div
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.2 }}
+                className="flex items-center gap-2 rounded border px-2 py-1.5"
+                style={{
+                  borderColor: `${teamColorRaw(userTeam)}55`,
+                  background: `${teamColorRaw(userTeam)}0f`,
+                }}
+              >
+                {/* pulsing dot */}
+                <span className="relative flex h-2 w-2 shrink-0">
+                  <span
+                    className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-60"
+                    style={{ background: teamColorRaw(userTeam) }}
+                  />
+                  <span
+                    className="relative inline-flex h-2 w-2 rounded-full"
+                    style={{ background: teamColorRaw(userTeam) }}
+                  />
+                </span>
+                <span
+                  className="text-[10px] font-bold uppercase tracking-wider"
+                  style={{ ...MONO, color: teamColor(userTeam) }}
+                >
+                  {agentName} needs USDC to upgrade
+                </span>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           {/* Fund section — enabled only after match starts */}
           {matchStarted ? (
             <FundSection
@@ -633,6 +688,7 @@ export default function AgentPanel({
               getClient={getClient}
               agentPublicKey={agentPublicKey}
               onLogEntries={onLogEntries}
+              onTxDone={() => fetchBalanceFnRef.current?.()}
             />
           ) : (
             <div

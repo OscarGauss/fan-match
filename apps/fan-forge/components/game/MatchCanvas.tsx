@@ -52,8 +52,13 @@ const BALL_MAX_SPD = 460;
 const BOUNCE_BOOST = 1.06;
 const GOAL_COOLDOWN = 1300; // ms
 const BASE_ROD_SPD = 185; // px/s at stat 50
-const BASE_PLR_RW = 7; // player ellipse half-width
+const BASE_PLR_RW = 7; // player ellipse half-width (base)
 const BASE_PLR_RH = 4.5; // player ellipse half-height
+// Width range: BASE_PLR_RW (stat=0) → BASE_PLR_RW * 2.2 (stat=100) — visually obvious
+const PLR_RW_SCALE = BASE_PLR_RW * 1.2;
+// Coordination drives all-rod speed: 0.6× at coord=0, 1.4× at coord=100
+const COORD_SPD_MIN = 0.6;
+const COORD_SPD_MAX = 1.4;
 
 const FIELD_COLOR = '#0a2a14';
 const STRIPE_COLOR = '#091f0f';
@@ -334,9 +339,9 @@ export default function MatchCanvas({ matchState, onGoal, onFeedEntry, paused = 
           ctx.stroke();
         }
 
-        // Players
+        // Players — width grows with the role's stat (e.g. defense → wider DEF players)
         const offsets = playerOffsets(def.count, f.h);
-        const rw = BASE_PLR_RW + (stat / 100) * 2.5;
+        const rw = BASE_PLR_RW + (stat / 100) * PLR_RW_SCALE;
 
         offsets.forEach((off) => {
           const py = clamp(rodY + off, f.y + BASE_PLR_RH + 2, f.y + f.h - BASE_PLR_RH - 2);
@@ -416,7 +421,11 @@ export default function MatchCanvas({ matchState, onGoal, onFeedEntry, paused = 
       // Rod tracking
       ROD_DEFS.forEach((def, i) => {
         const stat = ms.agents[def.team].stats[def.role];
-        const speedFactor = 0.28 + (stat / 100) * 0.72;
+        const coord = ms.agents[def.team].stats.coordination;
+        // Role stat → base tracking speed; coordination → global speed multiplier (velocidad)
+        const roleFactor = 0.28 + (stat / 100) * 0.72;
+        const coordMult = COORD_SPD_MIN + (coord / 100) * (COORD_SPD_MAX - COORD_SPD_MIN);
+        const speedFactor = roleFactor * coordMult;
         let targetY = p.by;
         if (def.role === 'defense') {
           targetY += (1 - speedFactor) * 18 * (Math.random() - 0.5);
@@ -457,7 +466,7 @@ export default function MatchCanvas({ matchState, onGoal, onFeedEntry, paused = 
           const def = ROD_DEFS[i];
           const rx = f.x + def.xFrac * f.w;
           const stat = ms.agents[def.team].stats[def.role];
-          const rw = BASE_PLR_RW + (stat / 100) * 2.5;
+          const rw = BASE_PLR_RW + (stat / 100) * PLR_RW_SCALE;
           const boost = ms.agents[def.team].activeBoost ? 1.4 : 1;
           const offsets = playerOffsets(def.count, f.h);
 

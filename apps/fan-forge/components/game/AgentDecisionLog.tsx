@@ -68,6 +68,16 @@ function Decision({ entry, color }: { entry: DecisionLogEntry; color: string }) 
   );
 }
 
+function Thinking({ entry, color }: { entry: DecisionLogEntry; color: string }) {
+  // Autonomous inner monologue — shown with a subtle prefix
+  return (
+    <span>
+      <span style={{ color, opacity: 0.6 }}>~ </span>
+      <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>{entry.message}</span>
+    </span>
+  );
+}
+
 function TxConfirmed({ entry, color }: { entry: DecisionLogEntry; color: string }) {
   // message: "tx confirmed · GABCD...XYZ → contract · 0.08 USDC · stellar testnet"
   // Parse: address, amount
@@ -109,6 +119,7 @@ function LogRow({ entry, color }: { entry: DecisionLogEntry; color: string }) {
 
       {/* Content */}
       <span className="min-w-0 break-words">
+        {entry.type === 'thinking' && <Thinking entry={entry} color={color} />}
         {entry.type === 'received_funds' && <ReceivedFunds entry={entry} color={color} />}
         {entry.type === 'analyzing' && <Analyzing entry={entry} />}
         {entry.type === 'decision' && <Decision entry={entry} color={color} />}

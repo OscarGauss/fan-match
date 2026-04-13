@@ -105,9 +105,17 @@ function GamePageInner() {
   // ── Engine ───────────────────────────────────────────────────────────────
   const engineRef = useRef<GameEngine | null>(null);
   const startTimeRef = useRef<number | null>(null);
-  const lastSimRef = useRef<number>(0);
   const myWalletId = useRef<string>(makeWalletId());
   const elapsedMsRef = useRef<number>(0); // always-fresh elapsed for callbacks
+  const thinkingRef = useRef<{ red: boolean; blue: boolean }>({ red: false, blue: false });
+  const thinkAgentIndexRef = useRef<number>(0); // alternates red/blue
+  // Tracks USDC already committed to upgrades this session
+  const agentSpentRef = useRef<{ red: number; blue: number }>({ red: 0, blue: 0 });
+  // Last usdcReceived seen — used to detect incoming funds
+  const lastBalanceRef = useRef<{ red: number; blue: number }>({ red: 0, blue: 0 });
+  const [agentNeedsFunds, setAgentNeedsFunds] = useState<{ red: boolean; blue: boolean }>({ red: false, blue: false });
+  // Mirror of matchState for use inside callbacks without stale closures
+  const matchStateRef = useRef<MatchState | null>(null);
 
   if (!engineRef.current) {
     engineRef.current = new GameEngine('GAGENTR3DXYZ', 'GAGENTB7WXYZ');
@@ -124,24 +132,43 @@ function GamePageInner() {
   const [matchStarted, setMatchStarted] = useState(false);
   const matchStartedRef = useRef(false);
 
-  // Fetch match state on mount — restore timer and score if already started
+  // Fetch match state on mount — restore timer, score, and agent stats
   useEffect(() => {
     if (!matchId) return;
     fetch(`/api/matches/${matchId}`)
       .then((r) => r.json())
-      .then((data: { startedAt?: string | null; scoreRed?: number; scoreBlue?: number }) => {
-        if (data.startedAt) {
-          const serverStart = new Date(data.startedAt).getTime();
+      .then((match: {
+        startedAt?: string | null;
+        scoreRed?: number;
+        scoreBlue?: number;
+        data?: { agentStats?: { red?: Partial<import('@/lib/types').AgentStats>; blue?: Partial<import('@/lib/types').AgentStats> } } | null;
+      }) => {
+        if (match.startedAt) {
+          const serverStart = new Date(match.startedAt).getTime();
           startTimeRef.current = serverStart;
           matchStartedRef.current = true;
           setMatchStarted(true);
         }
-        const red = data.scoreRed ?? 0;
-        const blue = data.scoreBlue ?? 0;
+        const red = match.scoreRed ?? 0;
+        const blue = match.scoreBlue ?? 0;
         if (red > 0 || blue > 0) {
           engineRef.current!.setScore(red, blue);
-          setMatchState((prev) => ({ ...prev, score: { red, blue } }));
         }
+        // Restore agent stats saved during the match
+        const savedStats = match.data?.agentStats;
+        if (savedStats?.red) engineRef.current!.setAgentStats('red', savedStats.red);
+        if (savedStats?.blue) engineRef.current!.setAgentStats('blue', savedStats.blue);
+
+        // Sync engine state into React state in one shot
+        const engineState = engineRef.current!.getState();
+        setMatchState((prev) => ({
+          ...prev,
+          score: { red, blue },
+          agents: {
+            red: { ...prev.agents.red, stats: { ...engineState.agents.red.stats } },
+            blue: { ...prev.agents.blue, stats: { ...engineState.agents.blue.stats } },
+          },
+        }));
       })
       .catch(console.error);
   }, [matchId]);
@@ -201,6 +228,8 @@ function GamePageInner() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [bottomView, setBottomView] = useState<'chat' | 'grid'>('chat');
   const [agentKeys, setAgentKeys] = useState<{ red: string; blue: string }>({ red: '', blue: '' });
+  const [showFinishModal, setShowFinishModal] = useState(false);
+  const prevStatusRef = useRef<string>('');
 
   // Persistent grid — always available, rotates through shapes each round
   const [persistentGrid, setPersistentGrid] = useState<GridEventState>(() => ({
@@ -211,6 +240,19 @@ function GamePageInner() {
     endMs: GRID_ROUND_DURATION_MS,
     pixelsLeft: { red: FREE_PIXELS_PER_EVENT, blue: FREE_PIXELS_PER_EVENT },
   }));
+
+  // Keep matchStateRef in sync so callbacks always read the latest balance
+  useEffect(() => {
+    matchStateRef.current = matchState;
+  }, [matchState]);
+
+  // Show finish modal when match transitions to finished
+  useEffect(() => {
+    if (matchState.status === 'finished' && prevStatusRef.current !== 'finished' && prevStatusRef.current !== '') {
+      setShowFinishModal(true);
+    }
+    prevStatusRef.current = matchState.status;
+  }, [matchState.status]);
 
   // ── Game loop — 100 ms tick ───────────────────────────────────────────────
   useEffect(() => {
@@ -239,7 +281,11 @@ function GamePageInner() {
         elapsedMs: snap.elapsedMs,
         stakingOpen: snap.stakingOpen,
         score: snap.score,
-        agents: snap.agents,
+        // Preserve usdcReceived from Horizon polling — engine always has 0
+        agents: {
+          red: { ...snap.agents.red, usdcReceived: prev.agents.red.usdcReceived },
+          blue: { ...snap.agents.blue, usdcReceived: prev.agents.blue.usdcReceived },
+        },
         currentGridEvent:
           snap.ge === null
             ? null
@@ -256,21 +302,16 @@ function GamePageInner() {
               },
       }));
 
-      if (snap.status === 'active' && elapsed - lastSimRef.current >= 30_000) {
-        lastSimRef.current = elapsed;
-        const simTeam: Team = Math.random() < 0.5 ? 'red' : 'blue';
-        const amount = Math.round((0.05 + Math.random() * 0.1) * 100) / 100;
-        const entries = engine.applyAgentFunding(simTeam, amount);
-        setDecisionLog((prev) => [...prev, ...entries].slice(-100));
-      }
+      // (autonomous thinking handled by separate useEffect below)
     }, 100);
     return () => clearInterval(id);
   }, []);
 
-  // ── Poll real USDC balances every 15 s during active match ───────────────
+  // ── Poll real USDC balances — immediately on match start, then every 15s ──
   useEffect(() => {
     if (matchState.status !== 'active') return;
-    const id = setInterval(async () => {
+
+    async function fetchBalances() {
       try {
         const [red, blue] = await Promise.all([
           fetch('/api/agent/balance?agentId=red').then((r) => r.json()),
@@ -285,23 +326,154 @@ function GamePageInner() {
           return {
             ...prev,
             agents: {
-              red: {
-                ...prev.agents.red,
-                usdcReceived: red.balance ?? prev.agents.red.usdcReceived,
-              },
-              blue: {
-                ...prev.agents.blue,
-                usdcReceived: blue.balance ?? prev.agents.blue.usdcReceived,
-              },
+              red: { ...prev.agents.red, usdcReceived: red.balance ?? prev.agents.red.usdcReceived },
+              blue: { ...prev.agents.blue, usdcReceived: blue.balance ?? prev.agents.blue.usdcReceived },
             },
           };
         });
       } catch {
-        // non-critical — silently ignore
+        // non-critical
       }
-    }, 15_000);
+    }
+
+    fetchBalances(); // immediate on match start — no waiting
+    const id = setInterval(fetchBalances, 15_000);
     return () => clearInterval(id);
   }, [matchState.status]);
+
+  // ── Shared agent think/spend function ─────────────────────────────────────
+  const runAgentThink = useCallback(async (team: Team) => {
+    if (!matchStartedRef.current) return;
+    const elapsed = elapsedMsRef.current;
+    if (elapsed >= MATCH_DURATION_MS) return;
+    if (thinkingRef.current[team]) return;
+
+    thinkingRef.current[team] = true;
+    try {
+      const state = engineRef.current!.getState();
+      // Use matchStateRef for balance — it reflects the real Horizon balance
+      // whereas engine.usdcReceived starts at 0 and only tracks local changes
+      const usdcReceived = matchStateRef.current?.agents[team].usdcReceived ?? state.agents[team].usdcReceived;
+      const availableUsdc = Math.max(0, usdcReceived - agentSpentRef.current[team]);
+
+      const res = await fetch('/api/agent/think', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          agentId: team,
+          score: state.score,
+          elapsedMs: elapsed,
+          stats: state.agents[team].stats,
+          usdcReceived,
+          availableUsdc,
+        }),
+      });
+
+      if (!res.ok) return;
+
+      const data = (await res.json()) as {
+        logEntries?: import('@/lib/types').DecisionLogEntry[];
+        upgrade?: { stat: keyof import('@/lib/types').AgentStats; amount: number; cost: number };
+        needsFunds?: boolean;
+        nextUpgradeCost?: number;
+      };
+
+      if (data.logEntries?.length) {
+        setDecisionLog((prev) => [...prev, ...data.logEntries!].slice(-100));
+      }
+
+      // Update "needs funds" badge in panel
+      setAgentNeedsFunds((prev) => ({
+        ...prev,
+        [team]: data.needsFunds ?? false,
+      }));
+
+      if (data.upgrade) {
+        agentSpentRef.current[team] += data.upgrade.cost;
+        engineRef.current!.applyStatUpgrade(
+          team,
+          data.upgrade.stat,
+          data.upgrade.amount,
+          data.upgrade.cost,
+        );
+        const updatedStats = engineRef.current!.getState().agents[team].stats;
+        // Only update stats — usdcReceived comes from Horizon polling, not the engine
+        setMatchState((prev) => ({
+          ...prev,
+          agents: {
+            ...prev.agents,
+            [team]: {
+              ...prev.agents[team],
+              stats: { ...updatedStats },
+            },
+          },
+        }));
+        setAgentNeedsFunds((prev) => ({ ...prev, [team]: false }));
+
+        // Persist latest agent stats to the match record
+        if (matchId) {
+          const opponent: Team = team === 'red' ? 'blue' : 'red';
+          const opponentStats = engineRef.current!.getState().agents[opponent].stats;
+          fetch(`/api/matches/${matchId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              data: {
+                agentStats: {
+                  [team]: updatedStats,
+                  [opponent]: opponentStats,
+                },
+                lastUpgrade: {
+                  team,
+                  stat: data.upgrade.stat,
+                  amount: data.upgrade.amount,
+                  cost: data.upgrade.cost,
+                  elapsedMs: elapsedMsRef.current,
+                },
+              },
+            }),
+          }).catch(() => { /* non-critical */ });
+        }
+
+        // Chain: if still has funds, upgrade again after a short pause for UI animation
+        const stillAvailable =
+          (matchStateRef.current?.agents[team].usdcReceived ?? 0) -
+          agentSpentRef.current[team];
+        if (stillAvailable >= 0.05) {
+          setTimeout(() => void runAgentThink(team), 1500);
+        }
+      }
+    } catch {
+      // non-critical
+    } finally {
+      thinkingRef.current[team] = false;
+    }
+  }, []);
+
+  // ── React immediately when an agent receives new funds ────────────────────
+  useEffect(() => {
+    if (!matchStartedRef.current) return;
+    for (const team of ['red', 'blue'] as Team[]) {
+      const current = matchState.agents[team].usdcReceived;
+      if (current > lastBalanceRef.current[team]) {
+        lastBalanceRef.current[team] = current;
+        // New USDC detected — think/act right away
+        void runAgentThink(team);
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [matchState.agents.red.usdcReceived, matchState.agents.blue.usdcReceived]);
+
+  // ── Periodic thinking loop (idle thoughts, alternates red/blue) ──────────
+  useEffect(() => {
+    const id = setInterval(() => {
+      const team: Team = thinkAgentIndexRef.current % 2 === 0 ? 'red' : 'blue';
+      thinkAgentIndexRef.current += 1;
+      // Only fire if agent isn't already mid-chain (thinkingRef guard handles duplicates)
+      void runAgentThink(team);
+    }, 30_000); // 30s — each agent gets a pulse every 60s when idle
+    return () => clearInterval(id);
+  }, [runAgentThink]);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
@@ -712,6 +884,7 @@ function GamePageInner() {
               agentPublicKey={agentKeys[userTeam]}
               onLogEntries={handleLogEntries}
               matchStarted={matchStarted && matchState.status !== 'finished'}
+              needsFunds={agentNeedsFunds[userTeam]}
             />
           </div>
 
@@ -736,6 +909,126 @@ function GamePageInner() {
           )}
         </div>
       </div>
+
+      {/* ── Match finish modal ──────────────────────────────────────── */}
+      <AnimatePresence>
+        {showFinishModal && (() => {
+          const winner: Team | 'tie' =
+            score.red > score.blue ? 'red' : score.blue > score.red ? 'blue' : 'tie';
+          const userWon = stakedTeam !== null && winner !== 'tie' && stakedTeam === winner;
+          const userLost = stakedTeam !== null && winner !== 'tie' && stakedTeam !== winner;
+
+          return (
+            <motion.div
+              key="finish-modal-backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.25 }}
+              className="fixed inset-0 z-[100] flex items-center justify-center"
+              style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)' }}
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.92, y: 16 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.92, y: 16 }}
+                transition={{ duration: 0.25, ease: 'easeOut' }}
+                className="flex flex-col items-center gap-6 rounded-xl border p-10"
+                style={{
+                  ...MONO_FONT,
+                  background: 'var(--bg-panel)',
+                  borderColor: 'var(--border-accent)',
+                  minWidth: 340,
+                  boxShadow: '0 0 60px rgba(0,0,0,0.6)',
+                }}
+              >
+                {/* Title */}
+                <div className="text-[11px] uppercase tracking-[0.2em]" style={{ color: 'var(--text-muted)' }}>
+                  Match Finished
+                </div>
+
+                {/* Score */}
+                <div className="flex items-center gap-4">
+                  <div className="flex flex-col items-center gap-1">
+                    <span className="text-5xl font-bold" style={{ color: 'var(--red)' }}>{score.red}</span>
+                    <span className="text-[10px] uppercase tracking-widest" style={{ color: 'var(--red)', opacity: 0.7 }}>Red</span>
+                  </div>
+                  <span className="text-3xl font-bold" style={{ color: 'var(--text-dim)' }}>:</span>
+                  <div className="flex flex-col items-center gap-1">
+                    <span className="text-5xl font-bold" style={{ color: 'var(--blue)' }}>{score.blue}</span>
+                    <span className="text-[10px] uppercase tracking-widest" style={{ color: 'var(--blue)', opacity: 0.7 }}>Blue</span>
+                  </div>
+                </div>
+
+                {/* Winner label */}
+                <div
+                  className="px-4 py-1.5 rounded text-[11px] font-bold uppercase tracking-widest"
+                  style={{
+                    background: winner === 'tie' ? '#ffffff0a' : winner === 'red' ? 'rgba(255,60,80,0.15)' : 'rgba(77,159,255,0.15)',
+                    color: winner === 'tie' ? 'var(--text-muted)' : winner === 'red' ? 'var(--red)' : 'var(--blue)',
+                    border: `1px solid ${winner === 'tie' ? 'var(--border)' : winner === 'red' ? 'rgba(255,60,80,0.35)' : 'rgba(77,159,255,0.35)'}`,
+                  }}
+                >
+                  {winner === 'tie' ? 'Draw' : `${winner === 'red' ? 'Red' : 'Blue'} wins`}
+                </div>
+
+                {/* Stake result */}
+                {stakedAmount !== null && stakedTeam !== null && (
+                  <div
+                    className="w-full rounded border px-4 py-3 text-center text-[11px]"
+                    style={{
+                      background: userWon ? 'rgba(0,255,136,0.06)' : userLost ? 'rgba(255,60,80,0.06)' : '#ffffff08',
+                      borderColor: userWon ? 'rgba(0,255,136,0.25)' : userLost ? 'rgba(255,60,80,0.25)' : 'var(--border)',
+                      color: userWon ? '#00ff88' : userLost ? 'var(--red)' : 'var(--text-muted)',
+                    }}
+                  >
+                    {userWon && (
+                      <>
+                        <div className="text-base font-bold mb-0.5">You won!</div>
+                        <div style={{ opacity: 0.8 }}>
+                          Staked {stakedAmount.toFixed(2)} USDC on {stakedTeam} · payout incoming
+                        </div>
+                      </>
+                    )}
+                    {userLost && (
+                      <>
+                        <div className="text-base font-bold mb-0.5">You lost</div>
+                        <div style={{ opacity: 0.8 }}>
+                          -{stakedAmount.toFixed(2)} USDC · staked on {stakedTeam}
+                        </div>
+                      </>
+                    )}
+                    {winner === 'tie' && (
+                      <>
+                        <div className="text-base font-bold mb-0.5">Draw</div>
+                        <div style={{ opacity: 0.8 }}>
+                          Your {stakedAmount.toFixed(2)} USDC stake will be refunded
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* Back to matches */}
+                <Link
+                  href="/"
+                  className="w-full rounded px-6 py-3 text-center text-[11px] font-bold uppercase tracking-widest transition-all"
+                  style={{
+                    background: 'var(--blue)',
+                    color: '#0a0a0f',
+                    textDecoration: 'none',
+                    display: 'block',
+                  }}
+                  onMouseEnter={(e) => ((e.currentTarget as HTMLAnchorElement).style.opacity = '0.85')}
+                  onMouseLeave={(e) => ((e.currentTarget as HTMLAnchorElement).style.opacity = '1')}
+                >
+                  ← Back to Matches
+                </Link>
+              </motion.div>
+            </motion.div>
+          );
+        })()}
+      </AnimatePresence>
 
       {/* ── Global notifications (top-right) ────────────────────────── */}
       <div className="pointer-events-none fixed right-4 top-4 z-50 flex flex-col items-end gap-2">

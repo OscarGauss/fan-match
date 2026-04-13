@@ -1,7 +1,7 @@
 import type { AgentStats } from '../types';
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
-const MODEL = 'claude-sonnet-4-20250514';
+const MODEL = 'claude-haiku-4-5-20251001'; // fast + cheap for real-time decisions
 
 type StatKey = keyof AgentStats;
 
@@ -13,7 +13,7 @@ const STAT_KEYS: StatKey[] = [
   'coordination',
 ];
 
-// ── Fallback ──────────────────────────────────────────────────────────────────
+// ── Fallbacks ─────────────────────────────────────────────────────────────────
 
 function fallback(currentStats: AgentStats): {
   stat: StatKey;
@@ -26,6 +26,27 @@ function fallback(currentStats: AgentStats): {
   return { stat: lowestStat, reasoning: 'upgrading weakest stat', upgradeAmount: 10 };
 }
 
+function fallbackThought(
+  agentId: 'red' | 'blue',
+  matchState: {
+    score: { red: number; blue: number };
+    currentStats: AgentStats;
+    usdcReceived: number;
+  },
+): string {
+  const myScore = matchState.score[agentId];
+  const oppScore = matchState.score[agentId === 'red' ? 'blue' : 'red'];
+  const lowestStat = STAT_KEYS.reduce((a, b) =>
+    matchState.currentStats[a] <= matchState.currentStats[b] ? a : b,
+  );
+  const val = matchState.currentStats[lowestStat];
+  if (myScore < oppScore)
+    return `down ${oppScore - myScore} — ${lowestStat} at ${val} is my weak spot, send USDC`;
+  if (myScore > oppScore)
+    return `leading — watching ${lowestStat} at ${val}, ready to reinforce`;
+  return `tied — ${lowestStat} at ${val} needs work, send USDC to upgrade`;
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function clampUpgradeAmount(n: number): number {
@@ -36,6 +57,11 @@ function truncateReasoning(s: string): string {
   return s.length > 80 ? s.slice(0, 80) : s;
 }
 
+function truncateThought(s: string): string {
+  const clean = s.replace(/^["']|["']$/g, '').trim();
+  return clean.length > 100 ? clean.slice(0, 100) : clean;
+}
+
 function formatTime(ms: number): string {
   const totalSeconds = Math.max(0, Math.floor(ms / 1000));
   const minutes = Math.floor(totalSeconds / 60);
@@ -43,7 +69,47 @@ function formatTime(ms: number): string {
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
-// ── Main export ───────────────────────────────────────────────────────────────
+async function callAnthropic(system: string, prompt: string, maxTokens: number): Promise<string> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) throw new Error('Missing ANTHROPIC_API_KEY');
+
+  const res = await fetch(ANTHROPIC_API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      max_tokens: maxTokens,
+      system,
+      messages: [{ role: 'user', content: prompt }],
+    }),
+  });
+
+  if (!res.ok) throw new Error(`Anthropic API error: ${res.status}`);
+
+  const data = (await res.json()) as { content: { type: string; text: string }[] };
+  return data.content.find((c) => c.type === 'text')?.text ?? '';
+}
+
+// ── Autonomous thinking ───────────────────────────────────────────────────────
+
+export async function thinkAutonomously(
+  agentId: 'red' | 'blue',
+  matchState: {
+    score: { red: number; blue: number };
+    timeRemainingMs: number;
+    currentStats: AgentStats;
+    usdcReceived: number;
+  },
+): Promise<string> {
+  // Use deterministic fallback — no API call needed for flavor text
+  return fallbackThought(agentId, matchState);
+}
+
+// ── Upgrade decision ──────────────────────────────────────────────────────────
 
 export async function decideUpgrade(
   agentId: 'red' | 'blue',
@@ -57,53 +123,21 @@ export async function decideUpgrade(
   const { score, timeRemainingMs, currentStats } = matchState;
   const agentName = agentId === 'red' ? 'AgentRed' : 'AgentBlue';
 
-  const systemPrompt =
-    `You are ${agentName}, an autonomous AI foosball agent. You just received ` +
-    `USDC from fans who believe in you. Analyze the match and decide which stat ` +
-    `to upgrade to maximize your winning chances. Be strategic.\n` +
-    `Available stats: goalkeeper (reflexes), defense (positioning), ` +
-    `midfield (speed), forward (power), coordination (teamwork).\n` +
-    `Current values are between 0-100. Upgrade amount should be between 5 and 20.\n` +
-    `Respond ONLY with valid JSON, no markdown, no explanation:\n` +
-    `{"stat": "goalkeeper|defense|midfield|forward|coordination", ` +
-    `"reasoning": "one sentence max 80 chars", ` +
-    `"upgradeAmount": number}`;
-
-  const userMessage =
-    `Match state: score ${score.red}-${score.blue}, time remaining ${formatTime(timeRemainingMs)}.\n` +
-    `My current stats: GK=${currentStats.goalkeeper}, DEF=${currentStats.defense}, ` +
-    `MID=${currentStats.midfield}, FWD=${currentStats.forward}, COO=${currentStats.coordination}.\n` +
-    `I just received ${usdcReceived} USDC from fans.\n` +
-    `Decide which stat to upgrade.`;
-
   try {
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) throw new Error('Missing ANTHROPIC_API_KEY');
+    const text = await callAnthropic(
+      `You are ${agentName}, an autonomous AI foosball agent. You just received USDC from fans. ` +
+      `Decide which stat to upgrade to maximize winning chances. Be strategic.\n` +
+      `Stats: goalkeeper, defense, midfield, forward, coordination (all 0-100).\n` +
+      `Upgrade amount: 5-20.\n` +
+      `Respond ONLY with valid JSON, no markdown:\n` +
+      `{"stat":"goalkeeper|defense|midfield|forward|coordination","reasoning":"max 80 chars","upgradeAmount":number}`,
+      `Score ${score.red}-${score.blue}, time left ${formatTime(timeRemainingMs)}.\n` +
+      `Stats: GK=${currentStats.goalkeeper} DEF=${currentStats.defense} ` +
+      `MID=${currentStats.midfield} FWD=${currentStats.forward} COO=${currentStats.coordination}.\n` +
+      `Received: ${usdcReceived} USDC. Decide.`,
+      150,
+    );
 
-    const response = await fetch(ANTHROPIC_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        max_tokens: 150,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: userMessage }],
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Anthropic API error: ${response.status}`);
-    }
-
-    const data = (await response.json()) as {
-      content: { type: string; text: string }[];
-    };
-
-    const text = data.content.find((c) => c.type === 'text')?.text ?? '';
     const parsed = JSON.parse(text) as {
       stat: string;
       reasoning: string;

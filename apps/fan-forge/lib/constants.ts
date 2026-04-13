@@ -24,6 +24,17 @@ export const STAT_UPGRADE_AMOUNT = 10;
 export const BASE_STAT_VALUE = 50;
 export const COORDINATION_BOOST_PER_WIN = 15;
 
+/**
+ * USDC cost to upgrade a stat based on its current value.
+ * Higher stats are more expensive to improve.
+ */
+export function getUpgradeCost(currentStatValue: number): number {
+  if (currentStatValue < 60) return 0.05;
+  if (currentStatValue < 75) return 0.10;
+  if (currentStatValue < 90) return 0.20;
+  return 0.40;
+}
+
 export const STAT_LABELS = {
   goalkeeper: 'GK',
   defense: 'DEF',
