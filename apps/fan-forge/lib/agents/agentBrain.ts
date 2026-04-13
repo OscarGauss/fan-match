@@ -1,4 +1,5 @@
 import type { AgentStats } from '../types';
+import { getUpgradeCost, STAT_UPGRADE_AMOUNT, STAT_MAX } from '../constants';
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 const MODEL = 'claude-haiku-4-5-20251001'; // fast + cheap for real-time decisions
@@ -15,7 +16,7 @@ const STAT_KEYS: StatKey[] = [
 
 // ── Fallbacks ─────────────────────────────────────────────────────────────────
 
-function fallback(currentStats: AgentStats): {
+function fallback(currentStats: AgentStats, usdcAvailable: number): {
   stat: StatKey;
   reasoning: string;
   upgradeAmount: number;
@@ -23,7 +24,8 @@ function fallback(currentStats: AgentStats): {
   const lowestStat = STAT_KEYS.reduce((a, b) =>
     currentStats[a] <= currentStats[b] ? a : b,
   );
-  return { stat: lowestStat, reasoning: 'upgrading weakest stat', upgradeAmount: 10 };
+  const upgradeAmount = maxAffordableUpgrade(currentStats[lowestStat], usdcAvailable);
+  return { stat: lowestStat, reasoning: 'upgrading weakest stat', upgradeAmount };
 }
 
 function fallbackThought(
@@ -49,8 +51,11 @@ function fallbackThought(
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function clampUpgradeAmount(n: number): number {
-  return Math.min(20, Math.max(5, Math.round(n)));
+/** Max upgrade points the agent can afford given its USDC and current stat value. */
+function maxAffordableUpgrade(currentStat: number, usdcAvailable: number): number {
+  const costPerStep = getUpgradeCost(currentStat);
+  const steps = Math.max(1, Math.floor(usdcAvailable / costPerStep));
+  return Math.min(steps * STAT_UPGRADE_AMOUNT, STAT_MAX - currentStat);
 }
 
 function truncateReasoning(s: string): string {
@@ -123,18 +128,23 @@ export async function decideUpgrade(
   const { score, timeRemainingMs, currentStats } = matchState;
   const agentName = agentId === 'red' ? 'AgentRed' : 'AgentBlue';
 
+  // Calculate the max upgrade this agent can afford with available USDC
+  // (pick the chosen stat's cost — we'll use the weakest stat's cost as estimate for the prompt)
+  const weakest = STAT_KEYS.reduce((a, b) => currentStats[a] <= currentStats[b] ? a : b);
+  const maxUpgrade = maxAffordableUpgrade(currentStats[weakest], usdcReceived);
+
   try {
     const text = await callAnthropic(
       `You are ${agentName}, an autonomous AI foosball agent. You just received USDC from fans. ` +
-      `Decide which stat to upgrade to maximize winning chances. Be strategic.\n` +
+      `Decide which stat to upgrade to maximize winning chances. Be aggressive — spend all available USDC.\n` +
       `Stats: goalkeeper, defense, midfield, forward, speed (all 0-100).\n` +
-      `Upgrade amount: 5-20.\n` +
+      `Max upgrade this turn: ${maxUpgrade} points (use it fully).\n` +
       `Respond ONLY with valid JSON, no markdown:\n` +
       `{"stat":"goalkeeper|defense|midfield|forward|speed","reasoning":"max 80 chars","upgradeAmount":number}`,
       `Score ${score.red}-${score.blue}, time left ${formatTime(timeRemainingMs)}.\n` +
       `Stats: GK=${currentStats.goalkeeper} DEF=${currentStats.defense} ` +
       `MID=${currentStats.midfield} FWD=${currentStats.forward} SPD=${currentStats.speed}.\n` +
-      `Received: ${usdcReceived} USDC. Decide.`,
+      `Received: ${usdcReceived} USDC. Max upgrade: ${maxUpgrade}. Decide.`,
       150,
     );
 
@@ -146,14 +156,21 @@ export async function decideUpgrade(
 
     const stat = STAT_KEYS.includes(parsed.stat as StatKey)
       ? (parsed.stat as StatKey)
-      : fallback(currentStats).stat;
+      : fallback(currentStats, usdcReceived).stat;
+
+    // Clamp to what the agent can actually afford for the chosen stat
+    const affordableForStat = maxAffordableUpgrade(currentStats[stat], usdcReceived);
+    const upgradeAmount = Math.min(
+      Math.max(STAT_UPGRADE_AMOUNT, Number(parsed.upgradeAmount)),
+      affordableForStat,
+    );
 
     return {
       stat,
       reasoning: truncateReasoning(String(parsed.reasoning ?? '')),
-      upgradeAmount: clampUpgradeAmount(Number(parsed.upgradeAmount)),
+      upgradeAmount,
     };
   } catch {
-    return fallback(currentStats);
+    return fallback(currentStats, usdcReceived);
   }
 }

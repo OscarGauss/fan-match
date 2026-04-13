@@ -54,10 +54,11 @@ const BALL_MAX_SPD = 460;
 const BOUNCE_BOOST = 1.06;
 const GOAL_COOLDOWN = 1300; // ms
 const BASE_ROD_SPD = 185; // px/s at stat 50
-const BASE_PLR_RW = 7; // player ellipse half-width (base)
-const BASE_PLR_RH = 4.5; // player ellipse half-height
-// Width range: BASE_PLR_RW (stat=0) → BASE_PLR_RW * 2.2 (stat=100) — visually obvious
-const PLR_RW_SCALE = BASE_PLR_RW * 1.2;
+// Player size — relative to field height
+// Base = circle: rw = rh = f.h * PLR_R_FRAC
+// Each +10 stat above initial adds PLR_SEG_FRAC of field height to rh (each end)
+const PLR_R_FRAC    = 0.018;  // base circle radius (~6px on 320px field)
+const PLR_SEG_FRAC  = 0.008;  // height added per upgrade segment (~2.5px each)
 // Coordination drives all-rod speed: 0.6× at coord=0, 1.4× at coord=100
 const COORD_SPD_MIN = 0.6;
 const COORD_SPD_MAX = 1.4;
@@ -124,6 +125,20 @@ export default function MatchCanvas({ matchState, onGoal, onFeedEntry, paused = 
     flash: null as null | { team: Team; fa: number; ta: number },
     cooldown: 0,
   });
+
+  // Baseline stats — captured on first tick, used to compute upgrade segments
+  const initStatsRef = useRef<{ red: AgentStats; blue: AgentStats } | null>(null);
+
+  // Upgrade animations — keyed by `${team}-${role}`, value = progress 0→1
+  interface UpgradeAnim {
+    team: Team;
+    role: keyof AgentStats;
+    t: number;   // seconds remaining (starts at 1.4)
+    oldRh: number; // rh before upgrade
+    newRh: number; // rh after upgrade
+  }
+  const upgradeAnims = useRef<UpgradeAnim[]>([]);
+  const prevStatsRef = useRef<{ red: AgentStats; blue: AgentStats } | null>(null);
 
   // Feed (React state — drives DOM only)
   const [feed, setFeed] = useState<FeedEntry[]>([]);
@@ -359,19 +374,77 @@ export default function MatchCanvas({ matchState, onGoal, onFeedEntry, paused = 
           ctx.stroke();
         }
 
-        // Players — width grows with the role's stat
+        // Players — circle at base stat, grows into capsule with each upgrade
         const offsets = playerOffsets(def.count, f.h);
-        const rw = BASE_PLR_RW + (stat / 100) * PLR_RW_SCALE;
+        const rw = f.h * PLR_R_FRAC;
+        const base = rw; // base rh = rw → perfect circle
+        const segH = f.h * PLR_SEG_FRAC;
+        const initStat = initStatsRef.current?.[def.team][def.role] ?? stat;
+        const upgrades = Math.max(0, Math.floor((stat - initStat) / 10));
+        const rh = base + upgrades * segH;
+
+        const anim = upgradeAnims.current.find(
+          (a) => a.team === def.team && a.role === def.role,
+        );
+        // progress 0→1 over first half, fade out second half
+        const animProgress = anim ? Math.min(1, (1.4 - anim.t) / 0.5) : 0;
+        const animAlpha   = anim ? Math.min(1, anim.t / 0.4) : 0;
 
         offsets.forEach((off) => {
-          const py = clamp(rodY + off, f.y + BASE_PLR_RH + 2, f.y + f.h - BASE_PLR_RH - 2);
-          ctx.fillStyle = tc;
-          ctx.shadowColor = tc;
-          ctx.shadowBlur = focused !== null && isFocused ? 14 : 5;
+          const py = clamp(rodY + off, f.y + rh + 2, f.y + f.h - rh - 2);
+
+          ctx.save();
+
+          // ── Clip entire capsule shape (ensures rounded pill always) ──
           ctx.beginPath();
-          ctx.ellipse(rx, py, rw, BASE_PLR_RH, 0, 0, Math.PI * 2);
-          ctx.fill();
+          ctx.roundRect(rx - rw, py - rh, rw * 2, rh * 2, rw);
+          ctx.clip();
+
+          // ── Glow + solid team color fill (full capsule background) ──
+          ctx.shadowColor = tc;
+          ctx.shadowBlur = (focused !== null && isFocused) || anim ? 14 : 5;
+          ctx.fillStyle = tc;
+          ctx.fillRect(rx - rw, py - rh, rw * 2, rh * 2);
           ctx.shadowBlur = 0;
+
+          // ── Upgrade bands painted on top — white on even upgrades ──
+          for (let s = 0; s < upgrades; s++) {
+            if (s % 2 === 0) {
+              ctx.fillStyle = 'rgba(255,255,255,0.82)';
+              ctx.fillRect(rx - rw, py - base - (s + 1) * segH, rw * 2, segH + 0.5);
+              ctx.fillRect(rx - rw, py + base + s * segH,        rw * 2, segH + 0.5);
+            }
+          }
+
+          // ── Thin separators between segments ──
+          if (upgrades > 0) {
+            ctx.strokeStyle = 'rgba(0,0,0,0.28)';
+            ctx.lineWidth = 0.6;
+            for (let s = 0; s <= upgrades; s++) {
+              const ly1 = py - base - s * segH;
+              const ly2 = py + base + s * segH;
+              ctx.beginPath(); ctx.moveTo(rx - rw, ly1); ctx.lineTo(rx + rw, ly1); ctx.stroke();
+              ctx.beginPath(); ctx.moveTo(rx - rw, ly2); ctx.lineTo(rx + rw, ly2); ctx.stroke();
+            }
+          }
+
+          ctx.restore();
+
+          // ── Upgrade pulse outline (outside clip) ──
+          if (anim && animAlpha > 0) {
+            const grownRh = anim.oldRh + (anim.newRh - anim.oldRh) * animProgress;
+            ctx.save();
+            ctx.globalAlpha = dimAlpha * animAlpha;
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 1.5;
+            ctx.shadowColor = '#ffffff';
+            ctx.shadowBlur = 10;
+            ctx.beginPath();
+            ctx.roundRect(rx - rw - 1, py - grownRh - 1, rw * 2 + 2, grownRh * 2 + 2, rw + 1);
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+            ctx.restore();
+          }
         });
 
         ctx.restore();
@@ -440,6 +513,50 @@ export default function MatchCanvas({ matchState, onGoal, onFeedEntry, paused = 
 
       if (p.cooldown > 0) p.cooldown -= dt * 1000;
 
+      // ── Capture baseline stats on first tick ─────────────────────────────
+      if (!initStatsRef.current) {
+        initStatsRef.current = {
+          red: { ...ms.agents.red.stats },
+          blue: { ...ms.agents.blue.stats },
+        };
+      }
+
+      // ── Detect stat upgrades → spawn animations ───────────────────────────
+      const prev = prevStatsRef.current;
+      if (prev) {
+        for (const team of ['red', 'blue'] as Team[]) {
+          for (const def of ROD_DEFS.filter((d) => d.team === team)) {
+            const role = def.role;
+            const oldVal = prev[team][role];
+            const newVal = ms.agents[team].stats[role];
+            if (newVal > oldVal) {
+              const base = f.h * PLR_R_FRAC;
+              const segH = f.h * PLR_SEG_FRAC;
+              const initVal = initStatsRef.current?.[team][role] ?? oldVal;
+              const oldSegs = Math.floor((oldVal - initVal) / 10);
+              const newSegs = Math.floor((newVal - initVal) / 10);
+              upgradeAnims.current = upgradeAnims.current.filter(
+                (a) => !(a.team === team && a.role === role),
+              );
+              upgradeAnims.current.push({
+                team, role, t: 1.4,
+                oldRh: base + oldSegs * segH,
+                newRh: base + newSegs * segH,
+              });
+            }
+          }
+        }
+      }
+      prevStatsRef.current = {
+        red: { ...ms.agents.red.stats },
+        blue: { ...ms.agents.blue.stats },
+      };
+
+      // Tick upgrade anims
+      upgradeAnims.current = upgradeAnims.current
+        .map((a) => ({ ...a, t: a.t - dt }))
+        .filter((a) => a.t > 0);
+
       // Rod tracking
       ROD_DEFS.forEach((def, i) => {
         const stat = ms.agents[def.team].stats[def.role];
@@ -455,8 +572,11 @@ export default function MatchCanvas({ matchState, onGoal, onFeedEntry, paused = 
 
         const offsets = playerOffsets(def.count, f.h);
         const maxOff = offsets.length ? Math.max(...offsets.map(Math.abs)) : 0;
-        const minY = f.y + maxOff + BASE_PLR_RH + 2;
-        const maxY = f.y + f.h - maxOff - BASE_PLR_RH - 2;
+        const rodBase = f.h * PLR_R_FRAC;
+        const rodUpgrades = Math.max(0, Math.floor((stat - (initStatsRef.current?.[def.team][def.role] ?? stat)) / 10));
+        const rodRh = rodBase + rodUpgrades * (f.h * PLR_SEG_FRAC);
+        const minY = f.y + maxOff + rodRh + 2;
+        const maxY = f.y + f.h - maxOff - rodRh - 2;
 
         const spd = BASE_ROD_SPD * speedFactor;
         const diff = targetY - p.rodY[i];
@@ -488,14 +608,17 @@ export default function MatchCanvas({ matchState, onGoal, onFeedEntry, paused = 
           const def = ROD_DEFS[i];
           const rx = f.x + def.xFrac * f.w;
           const stat = ms.agents[def.team].stats[def.role];
-          const rw = BASE_PLR_RW + (stat / 100) * PLR_RW_SCALE;
+          const rw = f.h * PLR_R_FRAC;
+          const physBase = f.h * PLR_R_FRAC;
+          const physUpgrades = Math.max(0, Math.floor((stat - (initStatsRef.current?.[def.team][def.role] ?? stat)) / 10));
+          const rh = physBase + physUpgrades * (f.h * PLR_SEG_FRAC);
           const boost = ms.agents[def.team].activeBoost ? 1.4 : 1;
           const offsets = playerOffsets(def.count, f.h);
 
           for (const off of offsets) {
-            const py = clamp(p.rodY[i] + off, f.y + BASE_PLR_RH + 2, f.y + f.h - BASE_PLR_RH - 2);
+            const py = clamp(p.rodY[i] + off, f.y + rh + 2, f.y + f.h - rh - 2);
             const dx = (p.bx - rx) / (rw + BALL_R);
-            const dy = (p.by - py) / (BASE_PLR_RH + BALL_R);
+            const dy = (p.by - py) / (rh + BALL_R);
 
             if (dx * dx + dy * dy < 1.1) {
               p.vx = -p.vx;

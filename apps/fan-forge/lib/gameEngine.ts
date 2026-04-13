@@ -9,9 +9,9 @@ import {
   AGENT_BOOST_DURATION_MS,
   STAT_MAX,
   STAT_UPGRADE_AMOUNT,
-  BASE_STAT_VALUE,
   SPEED_BOOST_PER_WIN,
   GRID_TARGETS,
+  getUpgradeCost,
 } from './constants';
 import { decideUpgrade } from './agentLogic';
 import type {
@@ -29,11 +29,11 @@ import type {
 
 function makeStats(): AgentStats {
   return {
-    goalkeeper: BASE_STAT_VALUE,
-    defense: BASE_STAT_VALUE,
-    midfield: BASE_STAT_VALUE,
-    forward: BASE_STAT_VALUE,
-    speed: BASE_STAT_VALUE,
+    goalkeeper: 35,  // starts small — grows when funded (GK coverage)
+    defense:    50,  // mid baseline
+    midfield:   55,  // slightly more active
+    forward:    45,  // slightly weaker — must be upgraded to score
+    speed:      40,  // low base — big payoff when upgraded
   };
 }
 
@@ -178,7 +178,12 @@ export class GameEngine {
     const now = this.state.elapsedMs;
     const statKey = decideUpgrade(team, agent.stats, this.state.score);
     const oldValue = agent.stats[statKey];
-    agent.stats[statKey] = Math.min(STAT_MAX, oldValue + STAT_UPGRADE_AMOUNT);
+
+    // Spend as much USDC as possible in one upgrade (cost scales with current stat)
+    const costPerStep = getUpgradeCost(oldValue);
+    const maxSteps = Math.max(1, Math.floor(amountUsdc / costPerStep));
+    const upgradeAmount = Math.min(maxSteps * STAT_UPGRADE_AMOUNT, STAT_MAX - oldValue);
+    agent.stats[statKey] = Math.min(STAT_MAX, oldValue + upgradeAmount);
 
     const statLabels: Record<keyof AgentStats, string> = {
       goalkeeper: 'goalkeeper reflexes',
@@ -208,7 +213,7 @@ export class GameEngine {
         timestamp: now,
         team,
         type: 'decision',
-        message: `→ upgrading ${statLabels[statKey]} (${oldValue} → ${agent.stats[statKey]})`,
+        message: `→ upgrading ${statLabels[statKey]} +${upgradeAmount} (${oldValue} → ${agent.stats[statKey]})`,
       },
     ];
   }
