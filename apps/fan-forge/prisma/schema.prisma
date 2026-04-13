@@ -11,7 +11,9 @@ model Match {
   id          String      @id @default(cuid())
   name        String
   ownerWallet String
-  roomId      String?
+  roomId      String?     // legacy — kept for existing matches
+  roomIdRed   String?
+  roomIdBlue  String?
   status      MatchStatus @default(WAITING)
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt

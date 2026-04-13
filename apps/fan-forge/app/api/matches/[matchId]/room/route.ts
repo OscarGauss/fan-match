@@ -9,8 +9,10 @@ export async function POST(_req: Request, { params }: { params: Promise<{ matchI
   const match = await prisma.match.findUnique({ where: { id: matchId } });
   if (!match) return NextResponse.json({ error: 'Match not found' }, { status: 404 });
 
-  // Already has a room — return it
-  if (match.roomId) return NextResponse.json({ roomId: match.roomId });
+  // Already has team rooms — return them
+  if (match.roomIdRed && match.roomIdBlue) {
+    return NextResponse.json({ roomIdRed: match.roomIdRed, roomIdBlue: match.roomIdBlue });
+  }
 
   // Ensure owner user exists in chat-api
   await fetch(`${CHAT_API}/api/auth/me`, {
@@ -19,30 +21,33 @@ export async function POST(_req: Request, { params }: { params: Promise<{ matchI
     body: JSON.stringify({ walletAddress: match.ownerWallet }),
   }).catch(() => null);
 
-  // Create the room in chat-api
-  const roomRes = await fetch(`${CHAT_API}/api/rooms`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      name: match.name,
-      walletAddress: match.ownerWallet,
-      recipientWallet: match.ownerWallet,
-    }),
-  });
-
-  if (!roomRes.ok) {
-    console.log({ roomRes });
-    const err = await roomRes.json().catch(() => ({}));
-    return NextResponse.json(
-      { error: 'Failed to create room in chat-api', detail: err },
-      { status: 502 },
-    );
+  // Helper to create a single room
+  async function createRoom(teamLabel: string) {
+    const res = await fetch(`${CHAT_API}/api/rooms`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: `${match!.name} · ${teamLabel}`,
+        walletAddress: match!.ownerWallet,
+        recipientWallet: match!.ownerWallet,
+      }),
+    });
+    if (!res.ok) throw new Error(`Failed to create ${teamLabel} room`);
+    return res.json() as Promise<{ id: string }>;
   }
 
-  const room = await roomRes.json();
+  let redRoom: { id: string };
+  let blueRoom: { id: string };
+  try {
+    [redRoom, blueRoom] = await Promise.all([createRoom('Red'), createRoom('Blue')]);
+  } catch (err) {
+    return NextResponse.json({ error: String(err) }, { status: 502 });
+  }
 
-  // Save roomId to the match
-  await prisma.match.update({ where: { id: matchId }, data: { roomId: room.id } });
+  await prisma.match.update({
+    where: { id: matchId },
+    data: { roomIdRed: redRoom.id, roomIdBlue: blueRoom.id },
+  });
 
-  return NextResponse.json({ roomId: room.id });
+  return NextResponse.json({ roomIdRed: redRoom.id, roomIdBlue: blueRoom.id });
 }

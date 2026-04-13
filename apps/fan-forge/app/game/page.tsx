@@ -118,7 +118,7 @@ function GamePageInner() {
   const recipientWallet = searchParams.get('ownerWallet') ?? '';
   const { walletAddress, getClient, isAuthenticated, network } = usePollar();
 
-  const [roomId, setRoomId] = useState('');
+  const [roomIds, setRoomIds] = useState<{ red: string; blue: string }>({ red: '', blue: '' });
   const [username, setUsername] = useState('');
 
   useEffect(() => {
@@ -126,7 +126,9 @@ function GamePageInner() {
     fetch(`/api/matches/${matchId}/room`, { method: 'POST' })
       .then((r) => r.json())
       .then((data) => {
-        if (data.roomId) setRoomId(data.roomId);
+        if (data.roomIdRed && data.roomIdBlue) {
+          setRoomIds({ red: data.roomIdRed, blue: data.roomIdBlue });
+        }
       })
       .catch(console.error);
   }, [matchId]);
@@ -408,9 +410,9 @@ function GamePageInner() {
   const isGrid = matchState.status === 'grid_event';
   const score = matchState.score;
   const timer = formatTimer(matchState.elapsedMs);
+  const roomId = roomIds[userTeam];
 
-  // suppress unused var warnings for external integrations
-  void roomId;
+  // suppress unused var warning for external integration
   void username;
 
   async function handleBeforeGift(
