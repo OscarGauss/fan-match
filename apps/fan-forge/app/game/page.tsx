@@ -21,6 +21,7 @@ import type { DecisionLogEntry, GridEventState, MatchState, Team } from '@/lib/t
 import { GiftOverlay, LiveChat } from '@fan-match/live-chat';
 import { usePollar, WalletButton } from '@pollar/react';
 import { AnimatePresence, motion } from 'framer-motion';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 
@@ -122,6 +123,28 @@ function GamePageInner() {
   const [username, setUsername] = useState('');
   const [matchStarted, setMatchStarted] = useState(false);
   const matchStartedRef = useRef(false);
+
+  // Fetch match state on mount — restore timer and score if already started
+  useEffect(() => {
+    if (!matchId) return;
+    fetch(`/api/matches/${matchId}`)
+      .then((r) => r.json())
+      .then((data: { startedAt?: string | null; scoreRed?: number; scoreBlue?: number }) => {
+        if (data.startedAt) {
+          const serverStart = new Date(data.startedAt).getTime();
+          startTimeRef.current = serverStart;
+          matchStartedRef.current = true;
+          setMatchStarted(true);
+        }
+        const red = data.scoreRed ?? 0;
+        const blue = data.scoreBlue ?? 0;
+        if (red > 0 || blue > 0) {
+          engineRef.current!.setScore(red, blue);
+          setMatchState((prev) => ({ ...prev, score: { red, blue } }));
+        }
+      })
+      .catch(console.error);
+  }, [matchId]);
 
   useEffect(() => {
     if (!matchId) return;
@@ -288,11 +311,16 @@ function GamePageInner() {
 
   const handleGoal = useCallback((team: Team) => {
     engineRef.current!.processGoal(team);
-    setMatchState((prev) => ({
-      ...prev,
-      score: { ...prev.score, [team]: prev.score[team] + 1 },
-    }));
-  }, []);
+    setMatchState((prev) => {
+      const newScore = { ...prev.score, [team]: prev.score[team] + 1 };
+      fetch(`/api/matches/${matchId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scoreRed: newScore.red, scoreBlue: newScore.blue }),
+      }).catch(console.error);
+      return { ...prev, score: newScore };
+    });
+  }, [matchId]);
 
   const handleFundAgent = useCallback((team: Team, amount: number) => {
     const entries = engineRef.current!.applyAgentFunding(team, amount);
@@ -410,10 +438,17 @@ function GamePageInner() {
   }, []);
 
   const handleStartMatch = useCallback(() => {
+    const now = Date.now();
     matchStartedRef.current = true;
-    startTimeRef.current = Date.now();
+    startTimeRef.current = now;
     setMatchStarted(true);
-  }, []);
+    // Persist start time so late joiners / refreshes sync to the same clock
+    fetch(`/api/matches/${matchId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ startedAt: now }),
+    }).catch(console.error);
+  }, [matchId]);
 
   // ── Derived ───────────────────────────────────────────────────────────────
   const isGrid = matchState.status === 'grid_event';
@@ -466,7 +501,7 @@ function GamePageInner() {
         style={{ borderColor: 'var(--border)', background: 'var(--bg-panel)' }}
       >
         <div className="flex items-center gap-3">
-          <a
+          <Link
             href="/"
             className="flex items-center gap-1.5 text-[11px] uppercase tracking-widest transition-colors"
             style={{
@@ -482,7 +517,7 @@ function GamePageInner() {
             }
           >
             ← Matches
-          </a>
+          </Link>
           <TeamToggle value={userTeam} onChange={setUserTeam} />
         </div>
 
@@ -491,12 +526,14 @@ function GamePageInner() {
             className="text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded"
             style={{
               fontFamily: 'var(--font-space-mono)',
-              background: matchStarted ? '#00ff8822' : '#ffffff12',
-              color: matchStarted ? '#00ff88' : '#888',
-              border: `1px solid ${matchStarted ? '#00ff8855' : '#444'}`,
+              ...(matchState.status === 'finished'
+                ? { background: '#ffffff0a', color: '#666', border: '1px solid #333' }
+                : matchStarted
+                ? { background: '#00ff8822', color: '#00ff88', border: '1px solid #00ff8855' }
+                : { background: '#ffffff12', color: '#888', border: '1px solid #444' }),
             }}
           >
-            {matchStarted ? '● live' : '○ waiting'}
+            {matchState.status === 'finished' ? '■ finished' : matchStarted ? '● live' : '○ waiting'}
           </span>
           <span
             className="text-sm font-bold tracking-widest"

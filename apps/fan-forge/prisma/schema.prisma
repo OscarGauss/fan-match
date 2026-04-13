@@ -15,6 +15,10 @@ model Match {
   roomIdRed   String?
   roomIdBlue  String?
   status      MatchStatus @default(WAITING)
+  startedAt   DateTime?   // wall-clock time when owner clicked Start
+  scoreRed    Int         @default(0)
+  scoreBlue   Int         @default(0)
+  data        Json?       // generic JSON blob for future use
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 }

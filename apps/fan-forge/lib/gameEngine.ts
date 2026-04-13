@@ -153,6 +153,11 @@ export class GameEngine {
     return { ...this.state.score };
   }
 
+  /** Restore score directly (e.g. after page refresh from persisted state). */
+  setScore(red: number, blue: number): void {
+    this.state.score = { red, blue };
+  }
+
   /**
    * Records incoming USDC for a team's agent, triggers the autonomous decision
    * cycle, and upgrades the chosen stat.
