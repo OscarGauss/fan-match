@@ -608,7 +608,7 @@ export default function AgentPanel({
           </div>
 
           {/* Radar */}
-          <RadarChart stats={agent.stats} team={userTeam} prevStats={prevStats} maxHeight={130} />
+          <RadarChart stats={agent.stats} team={userTeam} prevStats={prevStats} maxHeight={165} />
 
           {/* Compact stat row — clickable, highlights focused role */}
           <div className="flex flex-wrap justify-center gap-x-1.5 gap-y-0.5">

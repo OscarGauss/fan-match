@@ -108,7 +108,7 @@ function LogRow({ entry, color }: { entry: DecisionLogEntry; color: string }) {
       initial={isDecision ? { opacity: 0, y: 6 } : { opacity: 0 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, ease: 'easeOut' }}
-      className="flex gap-1.5 py-0.5 text-[11px] leading-relaxed"
+      className="flex gap-1.5 py-px text-[10px] leading-snug"
       style={{
         ...MONO,
         paddingLeft: isAnalyzing ? 8 : 0,
@@ -149,7 +149,7 @@ export default function AgentDecisionLog({ entries, activeTab }: AgentDecisionLo
     >
       {/* Label row */}
       <div
-        className="flex shrink-0 items-center gap-2 border-b px-3 py-2"
+        className="flex shrink-0 items-center gap-2 border-b px-3 py-1.5"
         style={{ borderColor: 'var(--border)' }}
       >
         {/* Pulsing live dot */}
@@ -164,7 +164,7 @@ export default function AgentDecisionLog({ entries, activeTab }: AgentDecisionLo
           />
         </span>
         <span
-          className="text-[10px] uppercase tracking-widest"
+          className="text-[9px] uppercase tracking-widest"
           style={{ color: 'var(--text-muted)' }}
         >
           agent decisions

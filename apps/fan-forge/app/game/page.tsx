@@ -876,7 +876,7 @@ function GamePageInner() {
         <div className="flex flex-col overflow-hidden" style={{ flex: '35 35 0%' }}>
           <div
             className="shrink-0 border-b"
-            style={{ borderColor: 'var(--border)', height: agentView === 'agents' ? 360 : 'auto' }}
+            style={{ borderColor: 'var(--border)', height: agentView === 'agents' ? 430 : 'auto' }}
           >
             <AgentPanel
               agents={matchState.agents}

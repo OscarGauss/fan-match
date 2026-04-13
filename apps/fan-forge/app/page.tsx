@@ -527,7 +527,8 @@ export default function LobbyPage() {
   function handleCreated(match: Match) {
     setMatches((prev) => [match, ...prev]);
     setShowCreate(false);
-    setTab('waiting');
+    setSelectedMatch(match);
+    setStep('teams');
   }
 
   function handleNewMatch() {
