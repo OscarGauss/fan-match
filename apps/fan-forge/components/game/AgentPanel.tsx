@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import type { AgentState, AgentStats, DecisionLogEntry, Team } from '@/lib/types';
 import { STAT_LABELS } from '@/lib/constants';
 import type { FocusedRole } from '@/lib/hooks/useMatchFocus';
+import type { AgentState, AgentStats, DecisionLogEntry, Team } from '@/lib/types';
+import { AnimatePresence, motion } from 'framer-motion';
+import { useEffect, useRef, useState } from 'react';
 import RadarChart from './RadarChart';
 
 // ── Props ─────────────────────────────────────────────────────────────────────
@@ -187,6 +187,7 @@ function FundSection({
       setTxState('done');
       onFund(value);
       onLogEntries(data.logEntries ?? []);
+      console.log('onLogEntries', data);
       onTxDone?.();
       setTimeout(() => setTxState('idle'), 1500);
     } catch {
@@ -575,7 +576,12 @@ export default function AgentPanel({
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-[10px] transition-opacity hover:opacity-100"
-                  style={{ ...MONO, color: 'var(--text-muted)', opacity: 0.7, textDecoration: 'none' }}
+                  style={{
+                    ...MONO,
+                    color: 'var(--text-muted)',
+                    opacity: 0.7,
+                    textDecoration: 'none',
+                  }}
                 >
                   {truncateAddr(agentPublicKey)} ↗
                 </a>
@@ -592,7 +598,10 @@ export default function AgentPanel({
               transition={{ duration: 0.35, ease: 'easeOut' }}
               className="flex flex-col items-end"
             >
-              <span className="flex items-center gap-1.5 text-base font-bold leading-none" style={{ ...MONO, color }}>
+              <span
+                className="flex items-center gap-1.5 text-base font-bold leading-none"
+                style={{ ...MONO, color }}
+              >
                 {balanceFetching && (
                   <span
                     className="inline-block h-2.5 w-2.5 animate-spin rounded-full border-2"
@@ -608,7 +617,7 @@ export default function AgentPanel({
           </div>
 
           {/* Radar */}
-          <RadarChart stats={agent.stats} team={userTeam} prevStats={prevStats} maxHeight={165} />
+          <RadarChart stats={agent.stats} team={userTeam} prevStats={prevStats} maxHeight={210} />
 
           {/* Compact stat row — clickable, highlights focused role */}
           <div className="flex flex-wrap justify-center gap-x-1.5 gap-y-0.5">
@@ -628,7 +637,9 @@ export default function AgentPanel({
                       ...MONO,
                       fontSize: 9,
                       background: isFocused ? `${teamColorRaw(userTeam)}22` : 'transparent',
-                      border: isFocused ? `1px solid ${teamColorRaw(userTeam)}66` : '1px solid transparent',
+                      border: isFocused
+                        ? `1px solid ${teamColorRaw(userTeam)}66`
+                        : '1px solid transparent',
                       borderRadius: 3,
                       padding: '1px 4px',
                       cursor: onFocusRole ? 'pointer' : 'default',

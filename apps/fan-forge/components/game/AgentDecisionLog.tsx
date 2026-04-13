@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import type { DecisionLogEntry, Team } from '@/lib/types';
+import { AnimatePresence, motion } from 'framer-motion';
+import { useEffect, useRef } from 'react';
 
 export interface AgentDecisionLogProps {
   entries: DecisionLogEntry[];

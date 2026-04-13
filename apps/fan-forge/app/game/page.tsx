@@ -17,8 +17,8 @@ import {
   MATCH_DURATION_MS,
 } from '@/lib/constants';
 import { GameEngine } from '@/lib/gameEngine';
-import type { DecisionLogEntry, GridEventState, MatchState, Team } from '@/lib/types';
 import { useMatchFocus } from '@/lib/hooks/useMatchFocus';
+import type { DecisionLogEntry, GridEventState, MatchState, Team } from '@/lib/types';
 import { GiftOverlay, LiveChat } from '@fan-match/live-chat';
 import { usePollar, WalletButton } from '@pollar/react';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -114,7 +114,10 @@ function GamePageInner() {
   const agentSpentRef = useRef<{ red: number; blue: number }>({ red: 0, blue: 0 });
   // Last usdcReceived seen — used to detect incoming funds
   const lastBalanceRef = useRef<{ red: number; blue: number }>({ red: 0, blue: 0 });
-  const [agentNeedsFunds, setAgentNeedsFunds] = useState<{ red: boolean; blue: boolean }>({ red: false, blue: false });
+  const [agentNeedsFunds, setAgentNeedsFunds] = useState<{ red: boolean; blue: boolean }>({
+    red: false,
+    blue: false,
+  });
   // Mirror of matchState for use inside callbacks without stale closures
   const matchStateRef = useRef<MatchState | null>(null);
 
@@ -135,46 +138,78 @@ function GamePageInner() {
   const [username, setUsername] = useState('');
   const [matchStarted, setMatchStarted] = useState(false);
   const matchStartedRef = useRef(false);
+  // Set to true once the initial match fetch resolves — prevents the start
+  // modal from flashing on refresh when the match is already active.
+  const matchDataLoadedRef = useRef(false);
 
   // Fetch match state on mount — restore timer, score, and agent stats
   useEffect(() => {
     if (!matchId) return;
     fetch(`/api/matches/${matchId}`)
       .then((r) => r.json())
-      .then((match: {
-        startedAt?: string | null;
-        scoreRed?: number;
-        scoreBlue?: number;
-        data?: { agentStats?: { red?: Partial<import('@/lib/types').AgentStats>; blue?: Partial<import('@/lib/types').AgentStats> } } | null;
-      }) => {
-        if (match.startedAt) {
-          const serverStart = new Date(match.startedAt).getTime();
-          startTimeRef.current = serverStart;
-          matchStartedRef.current = true;
-          setMatchStarted(true);
-        }
-        const red = match.scoreRed ?? 0;
-        const blue = match.scoreBlue ?? 0;
-        if (red > 0 || blue > 0) {
-          engineRef.current!.setScore(red, blue);
-        }
-        // Restore agent stats saved during the match
-        const savedStats = match.data?.agentStats;
-        if (savedStats?.red) engineRef.current!.setAgentStats('red', savedStats.red);
-        if (savedStats?.blue) engineRef.current!.setAgentStats('blue', savedStats.blue);
+      .then(
+        (match: {
+          startedAt?: string | null;
+          scoreRed?: number;
+          scoreBlue?: number;
+          data?: {
+            agentStats?: {
+              red?: Partial<import('@/lib/types').AgentStats>;
+              blue?: Partial<import('@/lib/types').AgentStats>;
+            };
+            decisionLog?: DecisionLogEntry[];
+          } | null;
+        }) => {
+          if (match.startedAt) {
+            const serverStart = new Date(match.startedAt).getTime();
+            startTimeRef.current = serverStart;
+            matchStartedRef.current = true;
+            setMatchStarted(true);
+          }
+          const red = match.scoreRed ?? 0;
+          const blue = match.scoreBlue ?? 0;
+          if (red > 0 || blue > 0) {
+            engineRef.current!.setScore(red, blue);
+          }
+          // Restore agent stats saved during the match
+          const savedStats = match.data?.agentStats;
+          if (savedStats?.red) engineRef.current!.setAgentStats('red', savedStats.red);
+          if (savedStats?.blue) engineRef.current!.setAgentStats('blue', savedStats.blue);
 
-        // Sync engine state into React state in one shot
-        const engineState = engineRef.current!.getState();
-        setMatchState((prev) => ({
-          ...prev,
-          score: { red, blue },
-          agents: {
-            red: { ...prev.agents.red, stats: { ...engineState.agents.red.stats } },
-            blue: { ...prev.agents.blue, stats: { ...engineState.agents.blue.stats } },
-          },
-        }));
-      })
+          // Restore decision log
+          const savedLog = match.data?.decisionLog;
+          if (savedLog && savedLog.length > 0) {
+            setDecisionLog(savedLog.slice(-100));
+          }
+
+          // Sync engine state into React state in one shot
+          const engineState = engineRef.current!.getState();
+          setMatchState((prev) => ({
+            ...prev,
+            score: { red, blue },
+            agents: {
+              red: { ...prev.agents.red, stats: { ...engineState.agents.red.stats } },
+              blue: { ...prev.agents.blue, stats: { ...engineState.agents.blue.stats } },
+            },
+          }));
+
+          // Mark data as loaded — used by the wallet-ready effect below.
+          matchDataLoadedRef.current = true;
+
+          // Show start modal only when the match hasn't started yet.
+          // Doing it here (after the fetch) ensures we have the real server
+          // state — no false-positive from matchStarted=false on initial render.
+          if (!match.startedAt) {
+            const wallet = walletAddress;
+            const owner = recipientWallet;
+            if (wallet && owner && wallet === owner) {
+              setShowStartModal(true);
+            }
+          }
+        },
+      )
       .catch(console.error);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [matchId]);
 
   useEffect(() => {
@@ -188,6 +223,17 @@ function GamePageInner() {
       })
       .catch(console.error);
   }, [matchId]);
+
+  // Fallback: if the wallet authenticated after the match fetch already ran,
+  // show the start modal now (only if the match hasn't started yet).
+  useEffect(() => {
+    if (!isAuthenticated || !walletAddress || !recipientWallet) return;
+    if (!matchDataLoadedRef.current) return;   // fetch hasn't resolved yet — it will handle it
+    if (matchStartedRef.current) return;       // match already running — never show
+    if (walletAddress === recipientWallet) {
+      setShowStartModal(true);
+    }
+  }, [isAuthenticated, walletAddress, recipientWallet]);
 
   useEffect(() => {
     if (!isAuthenticated || !walletAddress) return;
@@ -254,7 +300,11 @@ function GamePageInner() {
 
   // Show finish modal when match transitions to finished
   useEffect(() => {
-    if (matchState.status === 'finished' && prevStatusRef.current !== 'finished' && prevStatusRef.current !== '') {
+    if (
+      matchState.status === 'finished' &&
+      prevStatusRef.current !== 'finished' &&
+      prevStatusRef.current !== ''
+    ) {
       setShowFinishModal(true);
     }
     prevStatusRef.current = matchState.status;
@@ -332,8 +382,14 @@ function GamePageInner() {
           return {
             ...prev,
             agents: {
-              red: { ...prev.agents.red, usdcReceived: red.balance ?? prev.agents.red.usdcReceived },
-              blue: { ...prev.agents.blue, usdcReceived: blue.balance ?? prev.agents.blue.usdcReceived },
+              red: {
+                ...prev.agents.red,
+                usdcReceived: red.balance ?? prev.agents.red.usdcReceived,
+              },
+              blue: {
+                ...prev.agents.blue,
+                usdcReceived: blue.balance ?? prev.agents.blue.usdcReceived,
+              },
             },
           };
         });
@@ -359,7 +415,8 @@ function GamePageInner() {
       const state = engineRef.current!.getState();
       // Use matchStateRef for balance — it reflects the real Horizon balance
       // whereas engine.usdcReceived starts at 0 and only tracks local changes
-      const usdcReceived = matchStateRef.current?.agents[team].usdcReceived ?? state.agents[team].usdcReceived;
+      const usdcReceived =
+        matchStateRef.current?.agents[team].usdcReceived ?? state.agents[team].usdcReceived;
       const availableUsdc = Math.max(0, usdcReceived - agentSpentRef.current[team]);
 
       const res = await fetch('/api/agent/think', {
@@ -438,13 +495,14 @@ function GamePageInner() {
                 },
               },
             }),
-          }).catch(() => { /* non-critical */ });
+          }).catch(() => {
+            /* non-critical */
+          });
         }
 
         // Chain: if still has funds, upgrade again after a short pause for UI animation
         const stillAvailable =
-          (matchStateRef.current?.agents[team].usdcReceived ?? 0) -
-          agentSpentRef.current[team];
+          (matchStateRef.current?.agents[team].usdcReceived ?? 0) - agentSpentRef.current[team];
         if (stillAvailable >= 0.05) {
           setTimeout(() => void runAgentThink(team), 1500);
         }
@@ -467,7 +525,7 @@ function GamePageInner() {
         void runAgentThink(team);
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [matchState.agents.red.usdcReceived, matchState.agents.blue.usdcReceived]);
 
   // ── Periodic thinking loop (idle thoughts, alternates red/blue) ──────────
@@ -487,18 +545,21 @@ function GamePageInner() {
     setFeedEntries((prev) => [...prev, entry].slice(-30));
   }, []);
 
-  const handleGoal = useCallback((team: Team) => {
-    engineRef.current!.processGoal(team);
-    setMatchState((prev) => {
-      const newScore = { ...prev.score, [team]: prev.score[team] + 1 };
-      fetch(`/api/matches/${matchId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ scoreRed: newScore.red, scoreBlue: newScore.blue }),
-      }).catch(console.error);
-      return { ...prev, score: newScore };
-    });
-  }, [matchId]);
+  const handleGoal = useCallback(
+    (team: Team) => {
+      engineRef.current!.processGoal(team);
+      setMatchState((prev) => {
+        const newScore = { ...prev.score, [team]: prev.score[team] + 1 };
+        fetch(`/api/matches/${matchId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ scoreRed: newScore.red, scoreBlue: newScore.blue }),
+        }).catch(console.error);
+        return { ...prev, score: newScore };
+      });
+    },
+    [matchId],
+  );
 
   const handleFundAgent = useCallback((team: Team, amount: number) => {
     const entries = engineRef.current!.applyAgentFunding(team, amount);
@@ -508,6 +569,22 @@ function GamePageInner() {
   const handleLogEntries = useCallback((entries: DecisionLogEntry[]) => {
     setDecisionLog((prev) => [...prev, ...entries].slice(-100));
   }, []);
+
+  // Persist the full decision log to DB whenever it changes.
+  // Using a ref to skip the initial empty render (before the match data is restored).
+  const decisionLogInitRef = useRef(false);
+  useEffect(() => {
+    if (!matchId || !decisionLogInitRef.current) {
+      decisionLogInitRef.current = true;
+      return;
+    }
+    if (decisionLog.length === 0) return;
+    fetch(`/api/matches/${matchId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data: { decisionLog } }),
+    }).catch(console.error);
+  }, [decisionLog, matchId]);
 
   const handlePaintPixel = useCallback(
     (row: number, col: number) => {
@@ -635,13 +712,6 @@ function GamePageInner() {
   const roomId = roomIds[userTeam];
   const isOwner = isAuthenticated && !!walletAddress && walletAddress === recipientWallet;
 
-  // Show start modal when the owner loads the page and match hasn't started
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    if (isOwner && !matchStarted) {
-      setShowStartModal(true);
-    }
-  }, [isOwner, matchStarted]);
 
   // suppress unused var warning for external integration
   void username;
@@ -674,7 +744,7 @@ function GamePageInner() {
     }
   }
 
-  console.log({ matchStarted, isOwner });
+  // console.log({ matchStarted, isOwner });
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div
@@ -715,11 +785,15 @@ function GamePageInner() {
               ...(matchState.status === 'finished'
                 ? { background: '#ffffff0a', color: '#666', border: '1px solid #333' }
                 : matchStarted
-                ? { background: '#00ff8822', color: '#00ff88', border: '1px solid #00ff8855' }
-                : { background: '#ffffff12', color: '#888', border: '1px solid #444' }),
+                  ? { background: '#00ff8822', color: '#00ff88', border: '1px solid #00ff8855' }
+                  : { background: '#ffffff12', color: '#888', border: '1px solid #444' }),
             }}
           >
-            {matchState.status === 'finished' ? '■ finished' : matchStarted ? '● live' : '○ waiting'}
+            {matchState.status === 'finished'
+              ? '■ finished'
+              : matchStarted
+                ? '● live'
+                : '○ waiting'}
           </span>
           <span
             className="text-sm font-bold tracking-widest"
@@ -812,7 +886,7 @@ function GamePageInner() {
                     transition={{ duration: 0.15 }}
                     className="absolute inset-0"
                   >
-                    <div className="relative" style={{ height: '100%'}}>
+                    <div className="relative" style={{ height: '100%' }}>
                       <LiveChat
                         roomId={roomId}
                         walletAddress={walletAddress}
@@ -861,7 +935,7 @@ function GamePageInner() {
         <div className="flex flex-col overflow-hidden" style={{ flex: '35 35 0%' }}>
           <div
             className="shrink-0 border-b"
-            style={{ borderColor: 'var(--border)', height: agentView === 'agents' ? 430 : 'auto' }}
+            style={{ borderColor: 'var(--border)', height: agentView === 'agents' ? 440 : 'auto' }}
           >
             <AgentPanel
               agents={matchState.agents}
@@ -985,122 +1059,164 @@ function GamePageInner() {
 
       {/* ── Match finish modal ──────────────────────────────────────── */}
       <AnimatePresence>
-        {showFinishModal && (() => {
-          const winner: Team | 'tie' =
-            score.red > score.blue ? 'red' : score.blue > score.red ? 'blue' : 'tie';
-          const userWon = stakedTeam !== null && winner !== 'tie' && stakedTeam === winner;
-          const userLost = stakedTeam !== null && winner !== 'tie' && stakedTeam !== winner;
+        {showFinishModal &&
+          (() => {
+            const winner: Team | 'tie' =
+              score.red > score.blue ? 'red' : score.blue > score.red ? 'blue' : 'tie';
+            const userWon = stakedTeam !== null && winner !== 'tie' && stakedTeam === winner;
+            const userLost = stakedTeam !== null && winner !== 'tie' && stakedTeam !== winner;
 
-          return (
-            <motion.div
-              key="finish-modal-backdrop"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.25 }}
-              className="fixed inset-0 z-[100] flex items-center justify-center"
-              style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)' }}
-            >
+            return (
               <motion.div
-                initial={{ opacity: 0, scale: 0.92, y: 16 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.92, y: 16 }}
-                transition={{ duration: 0.25, ease: 'easeOut' }}
-                className="flex flex-col items-center gap-6 rounded-xl border p-10"
-                style={{
-                  ...MONO_FONT,
-                  background: 'var(--bg-panel)',
-                  borderColor: 'var(--border-accent)',
-                  minWidth: 340,
-                  boxShadow: '0 0 60px rgba(0,0,0,0.6)',
-                }}
+                key="finish-modal-backdrop"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.25 }}
+                className="fixed inset-0 z-[100] flex items-center justify-center"
+                style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)' }}
               >
-                {/* Title */}
-                <div className="text-[11px] uppercase tracking-[0.2em]" style={{ color: 'var(--text-muted)' }}>
-                  Match Finished
-                </div>
-
-                {/* Score */}
-                <div className="flex items-center gap-4">
-                  <div className="flex flex-col items-center gap-1">
-                    <span className="text-5xl font-bold" style={{ color: 'var(--red)' }}>{score.red}</span>
-                    <span className="text-[10px] uppercase tracking-widest" style={{ color: 'var(--red)', opacity: 0.7 }}>Red</span>
-                  </div>
-                  <span className="text-3xl font-bold" style={{ color: 'var(--text-dim)' }}>:</span>
-                  <div className="flex flex-col items-center gap-1">
-                    <span className="text-5xl font-bold" style={{ color: 'var(--blue)' }}>{score.blue}</span>
-                    <span className="text-[10px] uppercase tracking-widest" style={{ color: 'var(--blue)', opacity: 0.7 }}>Blue</span>
-                  </div>
-                </div>
-
-                {/* Winner label */}
-                <div
-                  className="px-4 py-1.5 rounded text-[11px] font-bold uppercase tracking-widest"
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.92, y: 16 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.92, y: 16 }}
+                  transition={{ duration: 0.25, ease: 'easeOut' }}
+                  className="flex flex-col items-center gap-6 rounded-xl border p-10"
                   style={{
-                    background: winner === 'tie' ? '#ffffff0a' : winner === 'red' ? 'rgba(255,60,80,0.15)' : 'rgba(77,159,255,0.15)',
-                    color: winner === 'tie' ? 'var(--text-muted)' : winner === 'red' ? 'var(--red)' : 'var(--blue)',
-                    border: `1px solid ${winner === 'tie' ? 'var(--border)' : winner === 'red' ? 'rgba(255,60,80,0.35)' : 'rgba(77,159,255,0.35)'}`,
+                    ...MONO_FONT,
+                    background: 'var(--bg-panel)',
+                    borderColor: 'var(--border-accent)',
+                    minWidth: 340,
+                    boxShadow: '0 0 60px rgba(0,0,0,0.6)',
                   }}
                 >
-                  {winner === 'tie' ? 'Draw' : `${winner === 'red' ? 'Red' : 'Blue'} wins`}
-                </div>
-
-                {/* Stake result */}
-                {stakedAmount !== null && stakedTeam !== null && (
+                  {/* Title */}
                   <div
-                    className="w-full rounded border px-4 py-3 text-center text-[11px]"
+                    className="text-[11px] uppercase tracking-[0.2em]"
+                    style={{ color: 'var(--text-muted)' }}
+                  >
+                    Match Finished
+                  </div>
+
+                  {/* Score */}
+                  <div className="flex items-center gap-4">
+                    <div className="flex flex-col items-center gap-1">
+                      <span className="text-5xl font-bold" style={{ color: 'var(--red)' }}>
+                        {score.red}
+                      </span>
+                      <span
+                        className="text-[10px] uppercase tracking-widest"
+                        style={{ color: 'var(--red)', opacity: 0.7 }}
+                      >
+                        Red
+                      </span>
+                    </div>
+                    <span className="text-3xl font-bold" style={{ color: 'var(--text-dim)' }}>
+                      :
+                    </span>
+                    <div className="flex flex-col items-center gap-1">
+                      <span className="text-5xl font-bold" style={{ color: 'var(--blue)' }}>
+                        {score.blue}
+                      </span>
+                      <span
+                        className="text-[10px] uppercase tracking-widest"
+                        style={{ color: 'var(--blue)', opacity: 0.7 }}
+                      >
+                        Blue
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Winner label */}
+                  <div
+                    className="px-4 py-1.5 rounded text-[11px] font-bold uppercase tracking-widest"
                     style={{
-                      background: userWon ? 'rgba(0,255,136,0.06)' : userLost ? 'rgba(255,60,80,0.06)' : '#ffffff08',
-                      borderColor: userWon ? 'rgba(0,255,136,0.25)' : userLost ? 'rgba(255,60,80,0.25)' : 'var(--border)',
-                      color: userWon ? '#00ff88' : userLost ? 'var(--red)' : 'var(--text-muted)',
+                      background:
+                        winner === 'tie'
+                          ? '#ffffff0a'
+                          : winner === 'red'
+                            ? 'rgba(255,60,80,0.15)'
+                            : 'rgba(77,159,255,0.15)',
+                      color:
+                        winner === 'tie'
+                          ? 'var(--text-muted)'
+                          : winner === 'red'
+                            ? 'var(--red)'
+                            : 'var(--blue)',
+                      border: `1px solid ${winner === 'tie' ? 'var(--border)' : winner === 'red' ? 'rgba(255,60,80,0.35)' : 'rgba(77,159,255,0.35)'}`,
                     }}
                   >
-                    {userWon && (
-                      <>
-                        <div className="text-base font-bold mb-0.5">You won!</div>
-                        <div style={{ opacity: 0.8 }}>
-                          Staked {stakedAmount.toFixed(2)} USDC on {stakedTeam} · payout incoming
-                        </div>
-                      </>
-                    )}
-                    {userLost && (
-                      <>
-                        <div className="text-base font-bold mb-0.5">You lost</div>
-                        <div style={{ opacity: 0.8 }}>
-                          -{stakedAmount.toFixed(2)} USDC · staked on {stakedTeam}
-                        </div>
-                      </>
-                    )}
-                    {winner === 'tie' && (
-                      <>
-                        <div className="text-base font-bold mb-0.5">Draw</div>
-                        <div style={{ opacity: 0.8 }}>
-                          Your {stakedAmount.toFixed(2)} USDC stake will be refunded
-                        </div>
-                      </>
-                    )}
+                    {winner === 'tie' ? 'Draw' : `${winner === 'red' ? 'Red' : 'Blue'} wins`}
                   </div>
-                )}
 
-                {/* Back to matches */}
-                <Link
-                  href="/"
-                  className="w-full rounded px-6 py-3 text-center text-[11px] font-bold uppercase tracking-widest transition-all"
-                  style={{
-                    background: 'var(--blue)',
-                    color: '#0a0a0f',
-                    textDecoration: 'none',
-                    display: 'block',
-                  }}
-                  onMouseEnter={(e) => ((e.currentTarget as HTMLAnchorElement).style.opacity = '0.85')}
-                  onMouseLeave={(e) => ((e.currentTarget as HTMLAnchorElement).style.opacity = '1')}
-                >
-                  ← Back to Matches
-                </Link>
+                  {/* Stake result */}
+                  {stakedAmount !== null && stakedTeam !== null && (
+                    <div
+                      className="w-full rounded border px-4 py-3 text-center text-[11px]"
+                      style={{
+                        background: userWon
+                          ? 'rgba(0,255,136,0.06)'
+                          : userLost
+                            ? 'rgba(255,60,80,0.06)'
+                            : '#ffffff08',
+                        borderColor: userWon
+                          ? 'rgba(0,255,136,0.25)'
+                          : userLost
+                            ? 'rgba(255,60,80,0.25)'
+                            : 'var(--border)',
+                        color: userWon ? '#00ff88' : userLost ? 'var(--red)' : 'var(--text-muted)',
+                      }}
+                    >
+                      {userWon && (
+                        <>
+                          <div className="text-base font-bold mb-0.5">You won!</div>
+                          <div style={{ opacity: 0.8 }}>
+                            Staked {stakedAmount.toFixed(2)} USDC on {stakedTeam} · payout incoming
+                          </div>
+                        </>
+                      )}
+                      {userLost && (
+                        <>
+                          <div className="text-base font-bold mb-0.5">You lost</div>
+                          <div style={{ opacity: 0.8 }}>
+                            -{stakedAmount.toFixed(2)} USDC · staked on {stakedTeam}
+                          </div>
+                        </>
+                      )}
+                      {winner === 'tie' && (
+                        <>
+                          <div className="text-base font-bold mb-0.5">Draw</div>
+                          <div style={{ opacity: 0.8 }}>
+                            Your {stakedAmount.toFixed(2)} USDC stake will be refunded
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Back to matches */}
+                  <Link
+                    href="/"
+                    className="w-full rounded px-6 py-3 text-center text-[11px] font-bold uppercase tracking-widest transition-all"
+                    style={{
+                      background: 'var(--blue)',
+                      color: '#0a0a0f',
+                      textDecoration: 'none',
+                      display: 'block',
+                    }}
+                    onMouseEnter={(e) =>
+                      ((e.currentTarget as HTMLAnchorElement).style.opacity = '0.85')
+                    }
+                    onMouseLeave={(e) =>
+                      ((e.currentTarget as HTMLAnchorElement).style.opacity = '1')
+                    }
+                  >
+                    ← Back to Matches
+                  </Link>
+                </motion.div>
               </motion.div>
-            </motion.div>
-          );
-        })()}
+            );
+          })()}
       </AnimatePresence>
 
       {/* ── Global notifications (top-right) ────────────────────────── */}
