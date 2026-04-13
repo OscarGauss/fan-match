@@ -8,12 +8,23 @@ import { useEffect, useState } from 'react';
 
 type MatchStatus = 'WAITING' | 'ACTIVE' | 'FINISHED';
 
+const MATCH_DURATION_MS = 5 * 60 * 1000;
+
 interface Match {
   id: string;
   name: string;
   ownerWallet: string;
   status: MatchStatus;
+  startedAt: string | null;
   createdAt: string;
+}
+
+function effectiveStatus(match: Match): MatchStatus {
+  if (match.status === 'FINISHED') return 'FINISHED';
+  if (match.startedAt && Date.now() - new Date(match.startedAt).getTime() >= MATCH_DURATION_MS) {
+    return 'FINISHED';
+  }
+  return match.status;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -285,11 +296,11 @@ function MatchCard({
         <span
           className="shrink-0 rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-widest"
           style={{
-            color: STATUS_COLOR[match.status],
-            borderColor: STATUS_COLOR[match.status],
+            color: STATUS_COLOR[effectiveStatus(match)],
+            borderColor: STATUS_COLOR[effectiveStatus(match)],
           }}
         >
-          {STATUS_LABEL[match.status]}
+          {STATUS_LABEL[effectiveStatus(match)]}
         </span>
       </div>
     </button>
@@ -433,11 +444,11 @@ export default function LobbyPage() {
             <span
               className="rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-widest"
               style={{
-                color: STATUS_COLOR[selectedMatch.status],
-                borderColor: STATUS_COLOR[selectedMatch.status],
+                color: STATUS_COLOR[effectiveStatus(selectedMatch)],
+                borderColor: STATUS_COLOR[effectiveStatus(selectedMatch)],
               }}
             >
-              {STATUS_LABEL[selectedMatch.status]}
+              {STATUS_LABEL[effectiveStatus(selectedMatch)]}
             </span>
           </div>
 

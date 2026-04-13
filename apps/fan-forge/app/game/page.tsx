@@ -570,7 +570,7 @@ function GamePageInner() {
               matchState={matchState}
               onGoal={handleGoal}
               onFeedEntry={handleFeedEntry}
-              paused={!matchStarted}
+              paused={!matchStarted || matchState.status === 'finished'}
             />
             {!matchStarted && isOwner && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -711,7 +711,7 @@ function GamePageInner() {
               getClient={getClient}
               agentPublicKey={agentKeys[userTeam]}
               onLogEntries={handleLogEntries}
-              matchStarted={matchStarted}
+              matchStarted={matchStarted && matchState.status !== 'finished'}
             />
           </div>
 
