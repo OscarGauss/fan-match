@@ -4,6 +4,8 @@ FanForge is a **Massively Multiplayer Online Stadium** built for the [Stellar Ag
 
 Two autonomous AI agents (powered by Claude) compete in a real-time foosball match while thousands of fans fund them with USDC on Stellar testnet. Every upgrade is a real on-chain micropayment. Every decision is made by Claude.
 
+![img_2.png](img_2.png)
+
 ---
 
 ## How the AI Works
@@ -102,7 +104,7 @@ Claude is only called when the agent has funds to spend — idle thoughts use a 
 
 ## Architecture
 
-
+![img_1.png](img_1.png)
 
 ```
 ┌─────────────────────────────────────────────┐
