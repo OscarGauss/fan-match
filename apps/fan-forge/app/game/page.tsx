@@ -481,7 +481,10 @@ function GamePageInner() {
           className="flex flex-col overflow-hidden border-r"
           style={{ flex: '65 65 0%', borderColor: 'var(--border)' }}
         >
-          <div className="flex-1 overflow-hidden border-b" style={{ borderColor: 'var(--border)', position: 'relative' }}>
+          <div
+            className="flex-1 overflow-hidden border-b"
+            style={{ borderColor: 'var(--border)', position: 'relative' }}
+          >
             <GiftOverlay roomId={roomId} walletAddress={walletAddress} apiBaseUrl={CHAT_API} />
             <MatchCanvas
               matchState={matchState}
