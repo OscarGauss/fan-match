@@ -62,7 +62,7 @@ export interface LiveChatProps {
   /** Base URL for API routes, e.g. "/api" or "https://myapp.com/api" */
   apiBaseUrl?: string;
   /** Height of the chat container in pixels */
-  height?: number;
+  height?: number | string;
   /** Additional CSS class names */
   className?: string;
   /**

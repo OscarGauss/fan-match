@@ -21,6 +21,7 @@ export interface AgentPanelProps {
   getClient: () => unknown;
   agentPublicKey: string;
   onLogEntries: (entries: DecisionLogEntry[]) => void;
+  matchStarted?: boolean;
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -446,6 +447,7 @@ export default function AgentPanel({
   getClient,
   agentPublicKey,
   onLogEntries,
+  matchStarted = false,
 }: AgentPanelProps) {
   const agent = agents[userTeam];
   const color = teamColor(userTeam);
@@ -622,15 +624,29 @@ export default function AgentPanel({
             </motion.div>
           )}
 
-          {/* Fund section — always visible */}
-          <FundSection
-            team={userTeam}
-            onFund={(amount) => onFundAgent(userTeam, amount)}
-            walletAddress={walletAddress}
-            getClient={getClient}
-            agentPublicKey={agentPublicKey}
-            onLogEntries={onLogEntries}
-          />
+          {/* Fund section — enabled only after match starts */}
+          {matchStarted ? (
+            <FundSection
+              team={userTeam}
+              onFund={(amount) => onFundAgent(userTeam, amount)}
+              walletAddress={walletAddress}
+              getClient={getClient}
+              agentPublicKey={agentPublicKey}
+              onLogEntries={onLogEntries}
+            />
+          ) : (
+            <div
+              className="flex items-center justify-center rounded-lg py-4 text-[11px] tracking-widest uppercase"
+              style={{
+                fontFamily: 'var(--font-space-mono)',
+                background: 'var(--bg-surface)',
+                color: 'var(--text-dim)',
+                border: '1px solid var(--border)',
+              }}
+            >
+              waiting for match to start…
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -244,7 +244,15 @@ function CreateMatchModal({
 
 // ── MatchCard ─────────────────────────────────────────────────────────────────
 
-function MatchCard({ match, onSelect }: { match: Match; onSelect: () => void }) {
+function MatchCard({
+  match,
+  isOwner,
+  onSelect,
+}: {
+  match: Match;
+  isOwner: boolean;
+  onSelect: () => void;
+}) {
   return (
     <button
       onClick={onSelect}
@@ -253,12 +261,22 @@ function MatchCard({ match, onSelect }: { match: Match; onSelect: () => void }) 
     >
       <div className="flex items-center justify-between gap-4">
         <div className="flex flex-col gap-0.5 min-w-0">
-          <span
-            className="truncate text-sm font-bold tracking-tight"
-            style={{ color: 'var(--text-primary)' }}
-          >
-            {match.name}
-          </span>
+          <div className="flex items-center gap-2 min-w-0">
+            <span
+              className="truncate text-sm font-bold tracking-tight"
+              style={{ color: 'var(--text-primary)' }}
+            >
+              {match.name}
+            </span>
+            {isOwner && (
+              <span
+                className="shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-widest"
+                style={{ background: 'rgba(99,102,241,0.15)', color: '#818cf8', border: '1px solid rgba(99,102,241,0.3)' }}
+              >
+                you
+              </span>
+            )}
+          </div>
           <span className="text-[11px] mono" style={{ color: 'var(--text-dim)' }}>
             {truncate(match.ownerWallet)}
           </span>
@@ -286,7 +304,7 @@ export default function LobbyPage() {
   const [loading, setLoading] = useState(true);
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
   const [showCreate, setShowCreate] = useState(false);
-  const { openLoginModal, isAuthenticated } = usePollar();
+  const { openLoginModal, isAuthenticated, walletAddress } = usePollar();
 
   useEffect(() => {
     fetch('/api/matches')
@@ -383,7 +401,12 @@ export default function LobbyPage() {
           ) : (
             <div className="flex flex-col gap-2">
               {matches.map((m) => (
-                <MatchCard key={m.id} match={m} onSelect={() => handleSelect(m)} />
+                <MatchCard
+                  key={m.id}
+                  match={m}
+                  isOwner={!!walletAddress && m.ownerWallet === walletAddress}
+                  onSelect={() => handleSelect(m)}
+                />
               ))}
             </div>
           )}

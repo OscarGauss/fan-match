@@ -16,6 +16,7 @@ export interface MatchCanvasProps {
   matchState: MatchState;
   onGoal: (team: Team) => void;
   onFeedEntry?: (entry: FeedEntry) => void;
+  paused?: boolean;
 }
 
 // ── Rod layout (left = red goal → right = blue goal) ─────────────────────────
@@ -79,7 +80,7 @@ function playerOffsets(count: number, fieldH: number): number[] {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export default function MatchCanvas({ matchState, onGoal, onFeedEntry }: MatchCanvasProps) {
+export default function MatchCanvas({ matchState, onGoal, onFeedEntry, paused = false }: MatchCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number>(0);
@@ -89,6 +90,8 @@ export default function MatchCanvas({ matchState, onGoal, onFeedEntry }: MatchCa
   const msRef = useRef(matchState);
   const onGoalRef = useRef(onGoal);
   const onFeedRef = useRef(onFeedEntry);
+  const pausedRef = useRef(paused);
+  useEffect(() => { pausedRef.current = paused; }, [paused]);
   useEffect(() => {
     msRef.current = matchState;
   }, [matchState]);
@@ -400,6 +403,13 @@ export default function MatchCanvas({ matchState, onGoal, onFeedEntry }: MatchCa
       const p = phys.current;
       const ms = msRef.current;
       const f = field();
+
+      // When paused, just draw the static field and schedule next frame
+      if (pausedRef.current) {
+        drawField(f);
+        rafRef.current = requestAnimationFrame(tick);
+        return;
+      }
 
       if (p.cooldown > 0) p.cooldown -= dt * 1000;
 

@@ -120,6 +120,8 @@ function GamePageInner() {
 
   const [roomIds, setRoomIds] = useState<{ red: string; blue: string }>({ red: '', blue: '' });
   const [username, setUsername] = useState('');
+  const [matchStarted, setMatchStarted] = useState(false);
+  const matchStartedRef = useRef(false);
 
   useEffect(() => {
     if (!matchId) return;
@@ -191,6 +193,7 @@ function GamePageInner() {
   useEffect(() => {
     const engine = engineRef.current!;
     const id = setInterval(() => {
+      if (!matchStartedRef.current) return;
       if (!startTimeRef.current) startTimeRef.current = Date.now();
       const elapsed = Date.now() - startTimeRef.current;
       elapsedMsRef.current = elapsed;
@@ -406,11 +409,18 @@ function GamePageInner() {
     setStakedAmount((prev) => (prev ?? 0) + amount);
   }, []);
 
+  const handleStartMatch = useCallback(() => {
+    matchStartedRef.current = true;
+    startTimeRef.current = Date.now();
+    setMatchStarted(true);
+  }, []);
+
   // ── Derived ───────────────────────────────────────────────────────────────
   const isGrid = matchState.status === 'grid_event';
   const score = matchState.score;
   const timer = formatTimer(matchState.elapsedMs);
   const roomId = roomIds[userTeam];
+  const isOwner = isAuthenticated && !!walletAddress && walletAddress === recipientWallet;
 
   // suppress unused var warning for external integration
   void username;
@@ -443,6 +453,7 @@ function GamePageInner() {
     }
   }
 
+  console.log({ matchStarted, isOwner });
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div
@@ -454,9 +465,39 @@ function GamePageInner() {
         className="flex h-14 shrink-0 items-center justify-between border-b px-5"
         style={{ borderColor: 'var(--border)', background: 'var(--bg-panel)' }}
       >
-        <TeamToggle value={userTeam} onChange={setUserTeam} />
+        <div className="flex items-center gap-3">
+          <a
+            href="/"
+            className="flex items-center gap-1.5 text-[11px] uppercase tracking-widest transition-colors"
+            style={{
+              fontFamily: 'var(--font-space-mono)',
+              color: 'var(--text-muted)',
+              textDecoration: 'none',
+            }}
+            onMouseEnter={(e) =>
+              ((e.currentTarget as HTMLAnchorElement).style.color = 'var(--text-primary)')
+            }
+            onMouseLeave={(e) =>
+              ((e.currentTarget as HTMLAnchorElement).style.color = 'var(--text-muted)')
+            }
+          >
+            ← Matches
+          </a>
+          <TeamToggle value={userTeam} onChange={setUserTeam} />
+        </div>
 
-        <div className="flex items-center gap-5">
+        <div className="flex items-center gap-4">
+          <span
+            className="text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded"
+            style={{
+              fontFamily: 'var(--font-space-mono)',
+              background: matchStarted ? '#00ff8822' : '#ffffff12',
+              color: matchStarted ? '#00ff88' : '#888',
+              border: `1px solid ${matchStarted ? '#00ff8855' : '#444'}`,
+            }}
+          >
+            {matchStarted ? '● live' : '○ waiting'}
+          </span>
           <span
             className="text-sm font-bold tracking-widest"
             style={{ fontFamily: 'var(--font-space-mono)', color: 'var(--text-muted)' }}
@@ -492,7 +533,34 @@ function GamePageInner() {
               matchState={matchState}
               onGoal={handleGoal}
               onFeedEntry={handleFeedEntry}
+              paused={!matchStarted}
             />
+            {!matchStarted && isOwner && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <button
+                  onClick={handleStartMatch}
+                  className="pointer-events-auto px-6 py-3 rounded-lg text-sm font-bold uppercase tracking-widest transition-all"
+                  style={{
+                    fontFamily: 'var(--font-space-mono)',
+                    background: 'var(--blue)',
+                    color: '#0a0a0f',
+                    border: 'none',
+                    cursor: 'pointer',
+                    boxShadow: '0 0 24px rgba(77,159,255,0.4)',
+                  }}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.boxShadow =
+                      '0 0 36px rgba(77,159,255,0.7)';
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.boxShadow =
+                      '0 0 24px rgba(77,159,255,0.4)';
+                  }}
+                >
+                  ▶ Start Match
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Bottom panel: Chat / Grid toggle */}
@@ -544,14 +612,14 @@ function GamePageInner() {
                     transition={{ duration: 0.15 }}
                     className="absolute inset-0"
                   >
-                    <div className="relative">
+                    <div className="relative" style={{ height: '100%'}}>
                       <LiveChat
                         roomId={roomId}
                         walletAddress={walletAddress}
                         username={username}
                         role="VIEWER"
                         apiBaseUrl={CHAT_API}
-                        height={200}
+                        height="100%"
                         onBeforeGift={handleBeforeGift}
                         className="fan-chat"
                       />
@@ -606,6 +674,7 @@ function GamePageInner() {
               getClient={getClient}
               agentPublicKey={agentKeys[userTeam]}
               onLogEntries={handleLogEntries}
+              matchStarted={matchStarted}
             />
           </div>
 
