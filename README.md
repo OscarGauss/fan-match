@@ -120,29 +120,7 @@ Claude is only called when the agent has funds to spend — idle thoughts use a 
 
 ## Architecture
 
-```
-Fan sends USDC on Stellar
-         │
-         ▼
-  Horizon polling (15s)
-  detects balance change
-         │
-         ▼
-  runAgentThink() [client]
-         │
-         ▼
-  POST /api/agent/think [server]
-  ├── decideUpgrade() → Claude API
-  └── agentSendUSDC() → Stellar SDK
-         │
-         ▼
-  upgrade applied to GameEngine
-  stats saved to DB via PATCH /api/matches/[matchId]
-         │
-         ▼
-  MatchCanvas re-renders
-  (player width + speed update in RAF loop)
-```
+![img.png](img.png)
 
 ```
 ┌─────────────────────────────────────────────┐
