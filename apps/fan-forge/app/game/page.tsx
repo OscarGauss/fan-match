@@ -234,6 +234,7 @@ function GamePageInner() {
   const [bottomView, setBottomView] = useState<'chat' | 'grid'>('chat');
   const [agentKeys, setAgentKeys] = useState<{ red: string; blue: string }>({ red: '', blue: '' });
   const [showFinishModal, setShowFinishModal] = useState(false);
+  const [showStartModal, setShowStartModal] = useState(false);
   const prevStatusRef = useRef<string>('');
 
   // Persistent grid — always available, rotates through shapes each round
@@ -634,6 +635,14 @@ function GamePageInner() {
   const roomId = roomIds[userTeam];
   const isOwner = isAuthenticated && !!walletAddress && walletAddress === recipientWallet;
 
+  // Show start modal when the owner loads the page and match hasn't started
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (isOwner && !matchStarted) {
+      setShowStartModal(true);
+    }
+  }, [isOwner, matchStarted]);
+
   // suppress unused var warning for external integration
   void username;
 
@@ -739,43 +748,19 @@ function GamePageInner() {
           style={{ flex: '65 65 0%', borderColor: 'var(--border)' }}
         >
           <div
-            className="flex-1 overflow-hidden border-b"
-            style={{ borderColor: 'var(--border)', position: 'relative' }}
+            className="relative flex-1 overflow-hidden border-b"
+            style={{ borderColor: 'var(--border)' }}
           >
             <GiftOverlay roomId={roomId} walletAddress={walletAddress} apiBaseUrl={CHAT_API} />
-            <MatchCanvas
-              matchState={matchState}
-              onGoal={handleGoal}
-              onFeedEntry={handleFeedEntry}
-              paused={!matchStarted || matchState.status === 'finished'}
-              focusedRole={focusedRole}
-            />
-            {!matchStarted && isOwner && (
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <button
-                  onClick={handleStartMatch}
-                  className="pointer-events-auto px-6 py-3 rounded-lg text-sm font-bold uppercase tracking-widest transition-all"
-                  style={{
-                    fontFamily: 'var(--font-space-mono)',
-                    background: 'var(--blue)',
-                    color: '#0a0a0f',
-                    border: 'none',
-                    cursor: 'pointer',
-                    boxShadow: '0 0 24px rgba(77,159,255,0.4)',
-                  }}
-                  onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.boxShadow =
-                      '0 0 36px rgba(77,159,255,0.7)';
-                  }}
-                  onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.boxShadow =
-                      '0 0 24px rgba(77,159,255,0.4)';
-                  }}
-                >
-                  ▶ Start Match
-                </button>
-              </div>
-            )}
+            <div className="absolute inset-0">
+              <MatchCanvas
+                matchState={matchState}
+                onGoal={handleGoal}
+                onFeedEntry={handleFeedEntry}
+                paused={!matchStarted || matchState.status === 'finished'}
+                focusedRole={focusedRole}
+              />
+            </div>
           </div>
 
           {/* Bottom panel: Chat / Grid toggle */}
@@ -917,6 +902,86 @@ function GamePageInner() {
           )}
         </div>
       </div>
+
+      {/* ── Match start modal ───────────────────────────────────────── */}
+      <AnimatePresence>
+        {showStartModal && (
+          <motion.div
+            key="start-modal-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center"
+            style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)' }}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.92, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.92, y: 16 }}
+              transition={{ duration: 0.25, ease: 'easeOut' }}
+              className="flex flex-col items-center gap-6 rounded-xl border p-10"
+              style={{
+                ...MONO_FONT,
+                background: 'var(--bg-panel)',
+                borderColor: 'var(--border-accent)',
+                minWidth: 340,
+                boxShadow: '0 0 60px rgba(0,0,0,0.6)',
+              }}
+            >
+              {/* Label */}
+              <div className="text-[11px] uppercase tracking-[0.2em]" style={{ color: 'var(--text-muted)' }}>
+                Ready to kick off
+              </div>
+
+              {/* Teams */}
+              <div className="flex items-center gap-6">
+                <div className="flex flex-col items-center gap-1">
+                  <span className="text-2xl font-bold" style={{ color: 'var(--red)' }}>RED</span>
+                  <span className="text-[10px] uppercase tracking-widest" style={{ color: 'var(--red)', opacity: 0.6 }}>Agent Red</span>
+                </div>
+                <span className="text-xl font-bold" style={{ color: 'var(--text-dim)' }}>VS</span>
+                <div className="flex flex-col items-center gap-1">
+                  <span className="text-2xl font-bold" style={{ color: 'var(--blue)' }}>BLUE</span>
+                  <span className="text-[10px] uppercase tracking-widest" style={{ color: 'var(--blue)', opacity: 0.6 }}>Agent Blue</span>
+                </div>
+              </div>
+
+              {/* Duration hint */}
+              <div
+                className="px-4 py-1.5 rounded text-[11px] uppercase tracking-widest"
+                style={{
+                  background: '#ffffff08',
+                  color: 'var(--text-muted)',
+                  border: '1px solid var(--border)',
+                }}
+              >
+                5:00 · 3 grid events · live staking
+              </div>
+
+              {/* Start button */}
+              <button
+                onClick={() => {
+                  setShowStartModal(false);
+                  handleStartMatch();
+                }}
+                className="w-full rounded px-6 py-3 text-[11px] font-bold uppercase tracking-widest transition-all"
+                style={{
+                  background: 'var(--blue)',
+                  color: '#0a0a0f',
+                  border: 'none',
+                  cursor: 'pointer',
+                  boxShadow: '0 0 24px rgba(77,159,255,0.35)',
+                }}
+                onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.opacity = '0.85')}
+                onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.opacity = '1')}
+              >
+                ▶ Start Match
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── Match finish modal ──────────────────────────────────────── */}
       <AnimatePresence>

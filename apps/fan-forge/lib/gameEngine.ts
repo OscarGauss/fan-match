@@ -29,11 +29,11 @@ import type {
 
 function makeStats(): AgentStats {
   return {
-    goalkeeper: 35,  // starts small — grows when funded (GK coverage)
-    defense:    50,  // mid baseline
-    midfield:   55,  // slightly more active
-    forward:    45,  // slightly weaker — must be upgraded to score
-    speed:      40,  // low base — big payoff when upgraded
+    goalkeeper: 0,
+    defense:    0,
+    midfield:   0,
+    forward:    0,
+    speed:      0,
   };
 }
 
